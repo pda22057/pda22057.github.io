@@ -1,22 +1,40 @@
 <html>
-  <head>
-    <script scr="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <script scr="https://c-frame.github.io/aframe-physics-system.js"></script>
+<head>
+<script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+<script src="https://c-frame.githun.io/aframe-physics-system/dist/aframe-physics.system.js"></script>
+<script>
+  var locked = true, tool = false, gas = true, message = "", time = 5000;
+
+  AFRAME.registerComponent('updating', {
+    tick: function () {
+      if (gas) time--;
+      if (time < 0) message - "Game Over...";
+      if (message != "") this.el.setAttribute('value', message);
+      else this.el.Attribute('value', '' + Math.round(time / 100));
+
+      var pos = document.getElementById('cam').getAttribute('position');
+      if (pos.x < -19 ) pos.x = -19;
+      if (pos.x > 19) pos.x = -19;
+      if (pos.z < -19 ) pos.z = -19;
+      if (pos.z > 19) pos.z = -19;
+      document.getElementById('cam').setAttribute('position', pos);
+    }
+  });
+</script>
 </head>
 <body>
-    <a-scene id="s1" fog="color: silver; near: 0" animation="property: fog.far; to: 5; dur; 50000; easing; easeOutQuad">
-     <a-plane static-body width="40" height="8" position=" -20 4 0" rotation=0 90 0">
-      <a-box id="window" color="silver" opacity="0.5" scale="1.25 1.25 0.5" position="-15 2 -0.2"
-       sound="scr: url(mixkit-glass-break-with-hammer-thud-759.wav)">
+  <a-scene id="s1" fog="color: silver; near: 0" animation="property: fog.far; to 5; dur: 50000; easing: easeOutQuad">
+    <a-plane static-body width-"40" height-"8" position-"-20 4 0" rotation-"0 90 0">
+      <a-box id="window" color="silver" opacity="0.5" scale="1.25 1.25 0.5" position="-15 2 0.2" sound="src: url(mixkit-glass-break-with-hammer-thud-759.wav)">
         <a-light distance="1" type="spot" position="0 0 1"></a-light>
         <a-light angle="90" intensity="0.01" type="spot" position="0 0 -1" rotation="180 0 0"></a-light>
       </a-box>
-     </a-plane>
-     <a-plane static-body width="40" height="8" position="20 4 0" rotation="0 -90 0"></a-plane>
-     <a-plane static-body width="40" height="8" position="0 4 20" material="side;back"></a-plane>
-     <a-plane static-body width="40" height="8" position="0 4 -20"></a-plane>
-     <a-plane static-body width="40" height="8" position="0 0 0" rotation="-90 0 0"></a-plane> 
-     <a-plane static-body width="40" height="40" position="0 8 0" rotation="90 0 0"></a-plane>    
+    </a-plane>
+  <a-plane static-body width="40" height="8" position="20 4 0" rotation="0 -90 0"></a-plane>
+  <a-plane static-body width="40" height="8" position="0 4 20" material="side:back"></a-plane>  
+  <a-plane static-body width="40" height="8" position="0 4 -20"></a-plane>    
+  <a-plane static-body width="40" height="40" position="0 0 0" rotation="-90 0 0"></a-plane>  
+  <a-plane static-body width="40" height="40" position="0 8 0" rotation="90 0 0"></a-plane>    
   <a-plane id="door" height="4" width="2" color="darkgreen" position="0 2 -19.9" sound="src: url(mixkit-locking-a-shop-door-with-keys-202.wav)">
     <a-ring color="black" radius-inner="0.01" radius-outer="0.01" position="0.75 0 0.01"></a-ring>
   </a-plane>
@@ -25,6 +43,6 @@
     <a-cone static-body height="2" position="0 -1 0"></a-cone>
     <a-cursor color="yellow" fuse="true" far="10"></a-cursor>
     <a-light id="light" distance="20" intensity="0.25" type="spot" penumbra="0.5" visible="false"></a-light>
-  </a-camera> 
+  </a-camera>    
 </body>
 </html>
