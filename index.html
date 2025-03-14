@@ -36,10 +36,10 @@
   <a-plane static-body width="40" height="40" position="0 0 0" rotation="-90 0 0"></a-plane>  
   <a-plane static-body width="40" height="40" position="0 8 0" rotation="90 0 0"></a-plane>    
   <a-plane id="door" height="4" width="2" color="darkgreen" position="0 2 -19.9" sound="src: url(mixkit-locking-a-shop-door-with-keys-202.wav)">
-    <a-ring color="black" radius-inner="0.01" radius-outer="0.01" position="0.75 0 0.01"></a-ring>
+    <a-ring color="black" radius-inner="0.01" radius-outer="0.1" position="0.75 0 0.01"></a-ring>
   </a-plane>
   <a-camera id="cam">
-    <a-text value="" align="center" geometry="primitive: plane; width: 0; height: 1" position="0 0.5 -1" material="opacity: 0"></a-text>
+    <a-text value="" align="center" geometry="primitive: plane; width: 0; height: 1" position="0 0.5 -1" material="opacity: 0" updating></a-text>
     <a-cone static-body height="2" position="0 -1 0"></a-cone>
     <a-cursor color="yellow" fuse="true" far="10"></a-cursor>
     <a-light id="light" distance="20" intensity="0.25" type="spot" penumbra="0.5" visible="false"></a-light>
