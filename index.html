@@ -8,7 +8,7 @@
   AFRAME.registerComponent('updating', {
     tick: function () {
       if (gas) time--;
-      if (time < 0) message - "Game Over...";
+      if (time < 0) message = "Game Over...";
       if (message != "") this.el.setAttribute('value', message);
       else this.el.setAttribute('value', '' + Math.round(time / 100));
 
