@@ -3,27 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Κολύμπι σε Αγριεμένη Θάλασσα — Mini Game</title>
+  <title>Όρκα στο Κύμα — Mini Game (χωρίς pointer‑lock)</title>
   <style>
     html, body { height: 100%; margin: 0; }
     body { background: #0b1422; overflow: hidden; }
     #app { position: fixed; inset: 0; }
-    .hud { position: fixed; inset: 0; pointer-events: none; }
+    .hud { position: fixed; inset: 0; pointer-events: auto; }
     .panel {
-      position: absolute; inset: 0; display: grid; place-items: center; pointer-events: auto;
+      position: absolute; inset: 0; display: grid; place-items: center;
       color: #e6f0ff; background: rgba(0,0,0,.55);
       font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       backdrop-filter: blur(6px);
+      z-index: 10;
     }
-    .panel .box{ background: rgba(9,14,24,.8); padding: 18px 22px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); text-align: center; }
-    .panel button{ margin-top: 10px; pointer-events:auto; border:0; padding:10px 14px; border-radius: 10px; background:#5993ff; color:#fff; font-weight:700; cursor:pointer; }
+    .panel .box{ background: rgba(9,14,24,.85); padding: 18px 22px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); text-align: center; }
+    .panel button{ margin-top: 10px; border:0; padding:10px 14px; border-radius: 10px; background:#5993ff; color:#fff; font-weight:700; cursor:pointer; }
     .panel kbd{ background: rgba(255,255,255,.15); padding: 2px 6px; border-radius: 6px; }
 
     .top-left { position: absolute; left: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; }
     .top-right { position: absolute; right: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; }
     .bottom { position: absolute; left: 50%; transform: translateX(-50%); bottom: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 12px system-ui; }
-
-    .flash { position: fixed; inset:0; background: rgba(255, 25, 25, 0.0); pointer-events:none; transition: background .25s ease; }
+    .flash { position: fixed; inset:0; background: rgba(255, 25, 25, 0.0); pointer-events:none; transition: background .25s ease; z-index: 9; }
+    canvas { cursor: grab; }
+    canvas.dragging { cursor: grabbing; }
   </style>
 </head>
 <body>
@@ -31,26 +33,25 @@
   <div class="hud">
     <div id="panel" class="panel">
       <div class="box">
-        <div style="font-size:20px; font-weight:800;">Κολύμπι σε Αγριεμένη Θάλασσα</div>
-        <div style="margin-top:6px;">Στόχος: <b>ΜΗΝ</b> βρίσκεσαι μέσα στους <b>κόκκινους κύκλους</b> όταν μηδενίσει το ρολόι (5s). Από εκεί βγαίνει <b>όρκα</b>!</div>
-        <div style="margin-top:10px;">Κίνηση: <kbd>WASD</kbd> • Sprint: <kbd>Shift</kbd> • Ποντίκι για θέαση (ή <kbd>← → ↑ ↓</kbd> αν δεν κλειδώσει ο δείκτης)</div>
-        <div style="margin-top:10px;">Ξεκίνα: Κλικ ή <kbd>Enter</kbd></div>
+        <div style="font-size:20px; font-weight:800;">Όρκα στο Κύμα</div>
+        <div style="margin-top:6px;">Μην βρίσκεσαι μέσα στους <b>κόκκινους κύκλους</b> όταν μηδενίσει το ρολόι (5s). Μετά πετάγεται <b>όρκα</b>!</div>
+        <div style="margin-top:10px;">Κίνηση: <kbd>WASD</kbd> • Sprint: <kbd>Shift</kbd> • Θέαση: <b>κλικ & σύρε το ποντίκι</b> (ή <kbd>← → ↑ ↓</kbd>)</div>
+        <div style="margin-top:10px;">Ξεκίνα: Κλικ, Enter ή οποιοδήποτε πλήκτρο</div>
         <button id="startBtn">Έναρξη</button>
       </div>
     </div>
     <div id="hudL" class="top-left">Ζωές: <b id="lives">3</b></div>
     <div id="hudR" class="top-right">Απέφυγες: <b id="avoided">0</b></div>
-    <div class="bottom">Συμβουλή: Μην κάθεσαι ακίνητος — οι κύκλοι εμφανίζονται τυχαία γύρω σου.</div>
+    <div class="bottom">Συμβουλή: κολύμπα συνεχώς — οι κύκλοι εμφανίζονται τυχαία γύρω σου.</div>
   </div>
   <div id="flash" class="flash"></div>
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-    import { PointerLockControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 
-    // —————————————————————————————————————————
-    // Βασικά
-    // —————————————————————————————————————————
+    // ———————————————————————————
+    // Σκηνή
+    // ———————————————————————————
     const app = document.getElementById('app');
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0b1a33, 0.0016);
@@ -62,7 +63,7 @@
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     app.appendChild(renderer.domElement);
 
-    // Φως & ουρανός
+    // Ουρανός & φως
     const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(-60, 120, -20);
     scene.add(sun, new THREE.AmbientLight(0x5a7cff, 0.18));
     const skyGeo = new THREE.SphereGeometry(8000, 32, 16);
@@ -73,8 +74,8 @@
     });
     scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-    // Θάλασσα (ορατά κύματα)
-    const SIZE = 6000; const SEG = 200;
+    // Θάλασσα (κύματα)
+    const SIZE = 6000, SEG = 200;
     const seaGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); seaGeo.rotateX(-Math.PI/2);
     const uniforms = {
       uTime: { value: 0 },
@@ -100,32 +101,36 @@
     });
     scene.add(new THREE.Mesh(seaGeo, seaMat));
 
-    // Πρώτο πρόσωπο (Pointer lock + fallback)
-    const plc = new PointerLockControls(camera, renderer.domElement);
-    scene.add(plc.getObject());
-    const panel = document.getElementById('panel');
-    const startBtn = document.getElementById('startBtn');
-    startBtn.addEventListener('click', ()=> startGame());
-    renderer.domElement.addEventListener('click', ()=> { if(!plc.isLocked && gameRunning) plc.lock(); });
-    addEventListener('keydown', e=>{ if(e.code==='Enter' && gameRunning && !plc.isLocked) plc.lock(); });
-    plc.addEventListener('lock', ()=> panel.style.display='none');
-    plc.addEventListener('unlock', ()=> panel.style.display='grid');
+    // Παίκτης (χωρίς pointer lock)
+    const player = new THREE.Object3D();
+    scene.add(player);
+    player.add(camera);
+    camera.position.set(0, 0, 0); // τα μάτια είναι στο κέντρο του player
+    let yaw = 0, pitch = 0; // γωνίες
 
-    // HUD
-    const livesEl = document.getElementById('lives');
-    const avoidedEl = document.getElementById('avoided');
-    const flashEl = document.getElementById('flash');
-
-    // Παιχνίδι
-    let gameRunning = false; let lives = 3; let avoided = 0;
+    // Χειρισμός
     const EYE = 2.0, SMOOTH = 0.12, SPEED = 18, RUN = 1.8;
-    const keys = { f:0,b:0,l:0,r:0,run:0 }; const turn={left:0,right:0,up:0,down:0};
-    addEventListener('keydown', e=>{ if(e.code==='KeyW')keys.f=1; if(e.code==='KeyS')keys.b=1; if(e.code==='KeyA')keys.l=1; if(e.code==='KeyD')keys.r=1; if(e.code==='ShiftLeft'||e.code==='ShiftRight')keys.run=1; if(e.code==='ArrowLeft')turn.left=1; if(e.code==='ArrowRight')turn.right=1; if(e.code==='ArrowUp')turn.up=1; if(e.code==='ArrowDown')turn.down=1; if(e.code==='KeyR')resetPlayer(); });
-    addEventListener('keyup', e=>{ if(e.code==='KeyW')keys.f=0; if(e.code==='KeyS')keys.b=0; if(e.code==='KeyA')keys.l=0; if(e.code==='KeyD')keys.r=0; if(e.code==='ShiftLeft'||e.code==='ShiftRight')keys.run=0; if(e.code==='ArrowLeft')turn.left=0; if(e.code==='ArrowRight')turn.right=0; if(e.code==='ArrowUp')turn.up=0; if(e.code==='ArrowDown')turn.down=0; });
+    const keys = { f:0,b:0,l:0,r:0,run:0 };
+    const arrows = { left:0,right:0,up:0,down:0 };
+    let dragging=false, lastX=0, lastY=0;
 
-    let yaw=0, pitch=0; function resetPlayer(){ const o=plc.getObject(); o.position.set(0, 6, 0); yaw=0; pitch=0; camera.rotation.set(0,0,0); }
+    function clampPitch(){ const lim=Math.PI/2-0.01; pitch=Math.max(-lim, Math.min(lim, pitch)); }
 
-    // Συνάρτηση ύψους κύματος (ίδια παράμετρα με shader)
+    renderer.domElement.addEventListener('mousedown', (e)=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; renderer.domElement.classList.add('dragging'); });
+    window.addEventListener('mouseup', ()=>{ dragging=false; renderer.domElement.classList.remove('dragging'); });
+    window.addEventListener('mousemove', (e)=>{ if(!dragging) return; const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; const S=0.003; yaw -= dx*S; pitch -= dy*S; clampPitch(); });
+
+    window.addEventListener('keydown', (e)=>{
+      if(e.code==='KeyW') keys.f=1; if(e.code==='KeyS') keys.b=1; if(e.code==='KeyA') keys.l=1; if(e.code==='KeyD') keys.r=1; if(e.code==='ShiftLeft'||e.code==='ShiftRight') keys.run=1;
+      if(e.code==='ArrowLeft') arrows.left=1; if(e.code==='ArrowRight') arrows.right=1; if(e.code==='ArrowUp') arrows.up=1; if(e.code==='ArrowDown') arrows.down=1;
+      if(!gameRunning) startGame();
+    });
+    window.addEventListener('keyup', (e)=>{
+      if(e.code==='KeyW') keys.f=0; if(e.code==='KeyS') keys.b=0; if(e.code==='KeyA') keys.l=0; if(e.code==='KeyD') keys.r=0; if(e.code==='ShiftLeft'||e.code==='ShiftRight') keys.run=0;
+      if(e.code==='ArrowLeft') arrows.left=0; if(e.code==='ArrowRight') arrows.right=0; if(e.code==='ArrowUp') arrows.up=0; if(e.code==='ArrowDown') arrows.down=0;
+    });
+
+    // Ύψος κύματος (ίδιο με shader)
     const TWO_PI = Math.PI*2;
     function sampleHeight(x,z,t){
       const sets=[
@@ -136,148 +141,86 @@
       let h=0; for(const s of sets){ const d=new THREE.Vector2().copy(s.D).normalize(); const k=TWO_PI/s.L; const ph=k*(d.x*x+d.y*z)-t*s.S; h+=Math.sin(ph)*s.A; } return h;
     }
 
-    // Επικίνδυνοι κύκλοι
-    const hazards = []; // {mesh, sprite, x,z,r, tLeft}
+    // Hazards (κύκλοι + όρκες)
     const hazardGroup = new THREE.Group(); scene.add(hazardGroup);
-
+    const hazards = [];
     function createTextSprite(text){
-      const cvs=document.createElement('canvas'); const ctx=cvs.getContext('2d'); const pad=8; ctx.font='700 28px system-ui,Segoe UI,Roboto'; const w=ctx.measureText(text).width+pad*2; const h=42+pad*2; cvs.width=w; cvs.height=h; ctx.font='700 28px system-ui,Segoe UI,Roboto'; ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,w,h); ctx.fillStyle='#ffffff'; ctx.textBaseline='middle'; ctx.textAlign='center'; ctx.fillText(text,w/2,h/2+2); const tex=new THREE.CanvasTexture(cvs); tex.needsUpdate=true; const mat=new THREE.SpriteMaterial({ map:tex, transparent:true }); const spr=new THREE.Sprite(mat); spr.scale.set(w*0.02,h*0.02,1); spr.userData.canvas=cvs; spr.userData.ctx=ctx; spr.userData.tex=tex; return spr;
+      const cvs=document.createElement('canvas'); const ctx=cvs.getContext('2d'); const pad=8; ctx.font='700 28px system-ui,Segoe UI,Roboto'; const w=ctx.measureText(text).width+pad*2; const h=42+pad*2; cvs.width=w; cvs.height=h; ctx.font='700 28px system-ui,Segoe UI,Roboto'; ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,w,h); ctx.fillStyle='#ffffff'; ctx.textBaseline='middle'; ctx.textAlign='center'; ctx.fillText(text,w/2,h/2+2); const tex=new THREE.CanvasTexture(cvs); const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true })); spr.scale.set(w*0.02,h*0.02,1); spr.userData={canvas:cvs,ctx:ctx,tex:tex}; return spr;
     }
-
     function spawnHazard(){
-      const r = THREE.MathUtils.randFloat(20, 40); // μεγάλοι κύκλοι
+      const r = THREE.MathUtils.randFloat(20, 40);
       const dist = THREE.MathUtils.randFloat(40, 160);
       const ang = THREE.MathUtils.randFloat(0, Math.PI*2);
-      const cx = plc.getObject().position.x + Math.cos(ang)*dist;
-      const cz = plc.getObject().position.z + Math.sin(ang)*dist;
-
-      // Κόκκινος δακτύλιος
-      const ring = new THREE.Mesh(
-        new THREE.RingGeometry(r*0.7, r, 64),
-        new THREE.MeshBasicMaterial({ color:0xff3355, transparent:true, opacity:0.7, side:THREE.DoubleSide })
-      );
-      ring.rotation.x = -Math.PI/2;
-      hazardGroup.add(ring);
-
-      // Χρονόμετρο sprite
+      const cx = player.position.x + Math.cos(ang)*dist;
+      const cz = player.position.z + Math.sin(ang)*dist;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(r*0.7, r, 64), new THREE.MeshBasicMaterial({ color:0xff3355, transparent:true, opacity:0.7, side:THREE.DoubleSide }));
+      ring.rotation.x = -Math.PI/2; hazardGroup.add(ring);
       const spr = createTextSprite('5.0s'); hazardGroup.add(spr);
-
-      hazards.push({ mesh:ring, sprite:spr, x:cx, z:cz, r, tLeft:5.0, orca: null });
+      hazards.push({ mesh:ring, sprite:spr, x:cx, z:cz, r, tLeft:5.0, orca:null });
     }
-
-    // Όρκα (απλό μοντέλο + άλμα)
     function spawnOrcaAt(x,z){
-      const g = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.SphereGeometry(6, 24, 16), new THREE.MeshPhongMaterial({ color:0x0a0a0a, shininess:20 }));
-      body.scale.set(1.6,0.8,1);
-      const fin = new THREE.Mesh(new THREE.ConeGeometry(3,6,16), new THREE.MeshPhongMaterial({ color:0x000000 }));
-      fin.position.set(0,2,0); fin.rotation.x = Math.PI;
-      const tail = new THREE.Mesh(new THREE.BoxGeometry(2,0.5,4), new THREE.MeshPhongMaterial({ color:0x000000 }));
-      tail.position.set(0,-1.5,-4);
-      g.add(body, fin, tail);
-      g.userData.t = 0; g.position.set(x, -20, z);
-      scene.add(g);
-      return g;
+      const g = new THREE.Group(); g.userData.isOrca=true; g.userData.t=0;
+      const body = new THREE.Mesh(new THREE.SphereGeometry(6, 24, 16), new THREE.MeshPhongMaterial({ color:0x0a0a0a, shininess:20 })); body.scale.set(1.6,0.8,1);
+      const fin = new THREE.Mesh(new THREE.ConeGeometry(3,6,16), new THREE.MeshPhongMaterial({ color:0x000000 })); fin.position.set(0,2,0); fin.rotation.x=Math.PI;
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(2,0.5,4), new THREE.MeshPhongMaterial({ color:0x000000 })); tail.position.set(0,-1.5,-4);
+      g.add(body, fin, tail); g.position.set(x,-20,z); scene.add(g); return g;
     }
 
-    function hitEffect(){
-      flashEl.style.background = 'rgba(255,25,25,0.35)';
-      setTimeout(()=> flashEl.style.background='rgba(255,25,25,0.0)', 150);
-    }
+    // HUD & game state
+    const panel = document.getElementById('panel');
+    const startBtn = document.getElementById('startBtn');
+    const livesEl = document.getElementById('lives');
+    const avoidedEl = document.getElementById('avoided');
+    const flashEl = document.getElementById('flash');
 
-    function damage(){
-      if(lives<=0) return; lives--; livesEl.textContent = lives;
-      hitEffect();
-      if(lives<=0){
-        endGame();
-      }
-    }
+    let gameRunning=false, lives=3, avoided=0;
+    function hitEffect(){ flashEl.style.background='rgba(255,25,25,0.35)'; setTimeout(()=> flashEl.style.background='rgba(255,25,25,0.0)', 150); }
+    function damage(){ if(lives<=0) return; lives--; livesEl.textContent=lives; hitEffect(); if(lives<=0) endGame(); }
+    function endGame(){ gameRunning=false; panel.style.display='grid'; panel.querySelector('.box').innerHTML=`<div style="font-size:20px; font-weight:800; margin-bottom:6px;">Game Over</div><div>Σε κατάπιε η όρκα! Απέφυγες: <b>${avoided}</b> κύκλους.</div><button id="restartBtn">Ξανά</button>`; document.getElementById('restartBtn').addEventListener('click', ()=>startGame()); }
 
-    function endGame(){
-      gameRunning=false; panel.style.display='grid';
-      panel.querySelector('.box').innerHTML = `
-        <div style="font-size:20px; font-weight:800; margin-bottom:6px;">Game Over</div>
-        <div>Σε κατάπιε η όρκα! Απέφυγες: <b>${avoided}</b> κύκλους.</div>
-        <button id="restartBtn">Ξανά</button>
-      `;
-      panel.querySelector('#restartBtn').addEventListener('click', ()=> startGame());
-    }
+    function resetPlayer(){ player.position.set(0,6,0); yaw=0; pitch=0; }
 
     function startGame(){
-      // reset state
+      // reset
       hazards.splice(0, hazards.length); while(hazardGroup.children.length) hazardGroup.remove(hazardGroup.children[0]);
       for(let i=scene.children.length-1;i>=0;i--){ const o=scene.children[i]; if(o.userData && o.userData.isOrca) scene.remove(o); }
       lives=3; avoided=0; livesEl.textContent=lives; avoidedEl.textContent=avoided;
-      resetPlayer(); gameRunning=true; uniforms.uTime.value=0; panel.style.display='none'; plc.lock();
-      // spawn a couple to start
+      resetPlayer(); gameRunning=true; uniforms.uTime.value=0; panel.style.display='none';
       for(let i=0;i<2;i++) spawnHazard();
     }
 
-    // —————————————————————————————————————————
+    startBtn.addEventListener('click', ()=> startGame());
+    renderer.domElement.addEventListener('click', ()=> { if(!gameRunning) startGame(); });
+
     // Βρόχος
-    // —————————————————————————————————————————
-    let shake=0; let shakeInt=0.0;
+    let shake=0, shakeInt=0;
     const clock = new THREE.Clock();
     function animate(){
       const dt = Math.min(clock.getDelta(), 0.05);
       uniforms.uTime.value += dt * 1.25;
 
-      // Κίνηση παίκτη
-      const obj = plc.getObject();
-      if(!plc.isLocked){ // fallback στροφή με βελάκια
-        const TURN=1.8; yaw += (turn.right - turn.left)*TURN*dt; pitch += (turn.up - turn.down)*TURN*dt; const lim=Math.PI/2-0.01; pitch=Math.max(-lim,Math.min(lim,pitch)); camera.rotation.set(pitch,yaw,0);
-      }
-      const dir = new THREE.Vector3();
-      if(plc.isLocked){ camera.getWorldDirection(dir); dir.y=0; dir.normalize(); } else { dir.set(Math.sin(yaw),0,-Math.cos(yaw)); }
-      const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).normalize();
-      let mx = (keys.r-keys.l), mz=(keys.f-keys.b);
-      if(mx||mz){ const sp=SPEED*(keys.run?RUN:1); obj.position.addScaledVector(dir, mz*sp*dt); obj.position.addScaledVector(right, mx*sp*dt); }
-      const t = uniforms.uTime.value; const targetY = sampleHeight(obj.position.x, obj.position.z, t) + EYE; obj.position.y += (targetY - obj.position.y)*SMOOTH;
+      // πληκτρα θέασης
+      const TURN=1.8; yaw += (arrows.right - arrows.left)*TURN*dt; pitch += (arrows.up - arrows.down)*TURN*dt; clampPitch();
+      player.rotation.y = yaw; camera.rotation.x = pitch;
 
-      // Hazards update
-      if(gameRunning){
-        // occasional spawn
-        if(hazards.length < 3 && Math.random() < 0.02){ spawnHazard(); }
-        for(let i=hazards.length-1;i>=0;i--){
-          const h = hazards[i];
-          // position ring & sprite to sea height
-          const hy = sampleHeight(h.x, h.z, t);
-          h.mesh.position.set(h.x, hy+0.05, h.z);
-          h.sprite.position.set(h.x, hy+6, h.z);
-          // countdown
-          h.tLeft -= dt; if(h.tLeft < 0) h.tLeft = 0;
-          // update sprite text
-          const sctx = h.sprite.userData.ctx, scvs=h.sprite.userData.canvas, stex=h.sprite.userData.tex;
-          sctx.clearRect(0,0,scvs.width,scvs.height);
-          sctx.fillStyle='rgba(0,0,0,0.35)'; sctx.fillRect(0,0,scvs.width,scvs.height);
-          sctx.font='700 28px system-ui,Segoe UI,Roboto'; sctx.fillStyle='#fff'; sctx.textAlign='center'; sctx.textBaseline='middle';
-          sctx.fillText(h.tLeft.toFixed(1)+'s', scvs.width/2, scvs.height/2+2);
-          stex.needsUpdate=true;
+      // κίνηση
+      const fwd = new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion); fwd.y=0; fwd.normalize();
+      const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0,1,0)).normalize();
+      const mx = (keys.r-keys.l), mz=(keys.f-keys.b); if(mx||mz){ const sp=SPEED*(keys.run?RUN:1); player.position.addScaledVector(fwd, mz*sp*dt); player.position.addScaledVector(right, mx*sp*dt); }
+      const t=uniforms.uTime.value; const targetY = sampleHeight(player.position.x, player.position.z, t) + EYE; player.position.y += (targetY - player.position.y)*SMOOTH;
 
-          if(h.tLeft<=0 && !h.orca){
-            // impact
-            const dist2 = (obj.position.x-h.x)*(obj.position.x-h.x) + (obj.position.z-h.z)*(obj.position.z-h.z);
-            const hit = dist2 <= (h.r*h.r);
-            // spawn orca jump
-            const orca = spawnOrcaAt(h.x, h.z); orca.userData.isOrca=true; h.orca=orca; orca.userData.dir = new THREE.Vector3().subVectors(obj.position, new THREE.Vector3(h.x, obj.position.y, h.z)).setY(0).normalize(); orca.userData.hit = hit; orca.userData.t=0;
-            // remove visuals of hazard
-            hazardGroup.remove(h.mesh); hazardGroup.remove(h.sprite);
-            hazards.splice(i,1);
-            if(hit){ damage(); shake = 0.5; shakeInt = 0.8; } else { avoided++; avoidedEl.textContent = avoided; }
-          }
+      // κύκλοι
+      if(gameRunning){ if(hazards.length<3 && Math.random()<0.02) spawnHazard();
+        for(let i=hazards.length-1;i>=0;i--){ const h=hazards[i]; const hy=sampleHeight(h.x,h.z,t); h.mesh.position.set(h.x,hy+0.05,h.z); h.sprite.position.set(h.x,hy+6,h.z); h.tLeft-=dt; if(h.tLeft<0) h.tLeft=0; // update text
+          const sctx=h.sprite.userData.ctx, scvs=h.sprite.userData.canvas, stex=h.sprite.userData.tex; sctx.clearRect(0,0,scvs.width,scvs.height); sctx.fillStyle='rgba(0,0,0,0.35)'; sctx.fillRect(0,0,scvs.width,scvs.height); sctx.font='700 28px system-ui,Segoe UI,Roboto'; sctx.fillStyle='#fff'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.fillText(h.tLeft.toFixed(1)+'s', scvs.width/2, scvs.height/2+2); stex.needsUpdate=true;
+          if(h.tLeft<=0 && !h.orca){ const hitDist2=(player.position.x-h.x)*(player.position.x-h.x)+(player.position.z-h.z)*(player.position.z-h.z); const hit = hitDist2 <= (h.r*h.r); const orca=spawnOrcaAt(h.x,h.z); orca.userData.dir=new THREE.Vector3().subVectors(player.position, new THREE.Vector3(h.x, player.position.y, h.z)).setY(0).normalize(); orca.userData.t=0; h.orca=orca; hazardGroup.remove(h.mesh); hazardGroup.remove(h.sprite); hazards.splice(i,1); if(hit){ damage(); shake=0.5; shakeInt=0.8; } else { avoided++; avoidedEl.textContent=avoided; } }
         }
       }
 
-      // Animate orcas
-      for(const o of scene.children){ if(!(o.userData && o.userData.isOrca)) continue; o.userData.t += dt; const tt=o.userData.t; const baseY = sampleHeight(o.position.x, o.position.z, t); // jump arc
-        const up = Math.sin(Math.min(tt,1)*Math.PI) * 10; // up to +10m
-        o.position.y = baseY - 6 + up;
-        o.position.addScaledVector(o.userData.dir, 10*dt);
-        o.rotation.y = Math.atan2(o.userData.dir.x, o.userData.dir.z);
-        if(tt>2.2){ scene.remove(o); }
-      }
+      // όρκες
+      for(const o of scene.children){ if(!(o.userData && o.userData.isOrca)) continue; o.userData.t += dt; const tt=o.userData.t; const baseY=sampleHeight(o.position.x,o.position.z,t); const up=Math.sin(Math.min(tt,1)*Math.PI)*10; o.position.y = baseY - 6 + up; o.position.addScaledVector(o.userData.dir, 10*dt); o.rotation.y = Math.atan2(o.userData.dir.x, o.userData.dir.z); if(tt>2.2) scene.remove(o); }
 
-      // Camera shake
+      // shake
       if(shake>0){ shake-=dt; const s=shakeInt*shake; camera.position.x += (Math.random()-0.5)*s; camera.position.y += (Math.random()-0.5)*s*0.5; camera.position.z += (Math.random()-0.5)*s; }
 
       renderer.render(scene, camera);
@@ -285,8 +228,11 @@
     }
     animate();
 
+    // Start με Enter/οποιοδήποτε κλικ
+    window.addEventListener('keydown', (e)=>{ if(!gameRunning && (e.code==='Enter' || true)) startGame(); }, { once:false });
+
     // Μέγεθος
-    addEventListener('resize', ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+    window.addEventListener('resize', ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
   </script>
 </body>
 </html>
