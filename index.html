@@ -11,13 +11,13 @@
     .hud { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; }
     .panel {
       pointer-events: auto;
-      color: #e6f0ff; background: rgba(0,0,0,.45); 
+      color: #e6f0ff; background: rgba(0,0,0,.5); 
       font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       padding: 14px 16px; border-radius: 12px; backdrop-filter: blur(6px);
       box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      text-align: center;
     }
-    .panel b{ font-weight:700 }
-    .mini { position: fixed; left: 10px; bottom: 10px; color:#e6f0ff; opacity:.85; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font:12px system-ui; }
+    .mini { position: fixed; left: 10px; bottom: 10px; color:#e6f0ff; opacity:.88; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font:12px system-ui; }
     kbd{background: rgba(255,255,255,.15); padding: 2px 6px; border-radius: 6px;}
   </style>
 </head>
@@ -26,7 +26,8 @@
   <div class="hud">
     <div id="lockPanel" class="panel">
       <div style="font-size:18px; margin-bottom:6px;">Click to start swimming</div>
-      <div>Mouse to look • <kbd>WASD</kbd> to swim • <kbd>Shift</kbd> to sprint • <kbd>R</kbd> reset • <kbd>Esc</kbd> to unlock</div>
+      <div>Mouse to look • <kbd>WASD</kbd> move • <kbd>Shift</kbd> sprint • <kbd>R</kbd> reset • <kbd>Enter</kbd> lock</div>
+      <div style="margin-top:6px; opacity:.9">No mouse look? Use <kbd>← →</kbd> to turn, <kbd>↑ ↓</kbd> to look (fallback).</div>
     </div>
   </div>
   <div class="mini">POV swimmer • waves follow camera height</div>
@@ -55,6 +56,8 @@
     const lockPanel = document.getElementById('lockPanel');
     const lock = ()=> controls.lock();
     lockPanel.addEventListener('click', lock);
+    renderer.domElement.addEventListener('click', ()=>{ if(!controls.isLocked) controls.lock(); });
+    addEventListener('keydown', e=>{ if(e.code==='Enter' && !controls.isLocked) controls.lock(); });
     controls.addEventListener('lock', ()=> lockPanel.style.display = 'none');
     controls.addEventListener('unlock', ()=> lockPanel.style.display = 'grid');
 
@@ -176,25 +179,28 @@
     const RUN_MULT = 1.8;             // Shift multiplier
 
     const keys = { f:0, b:0, l:0, r:0, run:0 };
+    const turn = { left:0, right:0, up:0, down:0 };
     addEventListener('keydown', (e)=>{
       if(e.code==='KeyW') keys.f=1; if(e.code==='KeyS') keys.b=1; if(e.code==='KeyA') keys.l=1; if(e.code==='KeyD') keys.r=1; if(e.code==='ShiftLeft'||e.code==='ShiftRight') keys.run=1;
+      if(e.code==='ArrowLeft') turn.left=1; if(e.code==='ArrowRight') turn.right=1; if(e.code==='ArrowUp') turn.up=1; if(e.code==='ArrowDown') turn.down=1;
       if(e.code==='KeyR'){ resetPlayer(); }
     });
     addEventListener('keyup', (e)=>{
       if(e.code==='KeyW') keys.f=0; if(e.code==='KeyS') keys.b=0; if(e.code==='KeyA') keys.l=0; if(e.code==='KeyD') keys.r=0; if(e.code==='ShiftLeft'||e.code==='ShiftRight') keys.run=0;
+      if(e.code==='ArrowLeft') turn.left=0; if(e.code==='ArrowRight') turn.right=0; if(e.code==='ArrowUp') turn.up=0; if(e.code==='ArrowDown') turn.down=0;
     });
 
+    let yaw = 0, pitch = 0; // fallback orientation
     function resetPlayer(){
       const obj = controls.getObject();
       obj.position.set(0, 6, 0);
-      camera.rotation.set(0, 0, 0);
+      yaw = 0; pitch = 0; camera.rotation.set(0,0,0);
     }
     resetPlayer();
 
     // CPU-side wave sampler to keep camera on surface
     const TWO_PI = Math.PI * 2;
     function heightAndGrad(x, z, t){
-      // same params as shader
       const sets = [
         { amp: uniforms.uAmp1.value, len: uniforms.uLen1.value, spd: uniforms.uSpd1.value, dir: uniforms.uDir1.value },
         { amp: uniforms.uAmp2.value, len: uniforms.uLen2.value, spd: uniforms.uSpd2.value, dir: uniforms.uDir2.value },
@@ -213,29 +219,46 @@
       return { h, dhdx, dhdz };
     }
 
+    function updateFallbackRotation(dt){
+      if(!controls.isLocked){
+        const TURN = 1.8; // rad/s
+        yaw += (turn.right - turn.left) * TURN * dt;
+        pitch += (turn.up - turn.down) * TURN * dt;
+        const lim = Math.PI/2 - 0.01;
+        pitch = Math.max(-lim, Math.min(lim, pitch));
+        camera.rotation.set(pitch, yaw, 0);
+      }
+    }
+
     // Animate
     const clock = new THREE.Clock();
     function animate(){
       const dt = Math.min(clock.getDelta(), 0.05);
       uniforms.uTime.value += dt * 1.25;
 
-      // movement on XZ
+      updateFallbackRotation(dt);
+
+      // movement on XZ regardless of lock (fallback uses yaw)
+      const obj = controls.getObject();
+      const dir = new THREE.Vector3();
       if(controls.isLocked){
-        const obj = controls.getObject();
-        const dir = new THREE.Vector3();
         camera.getWorldDirection(dir); dir.y = 0; dir.normalize();
-        const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).normalize();
-        let moveX = (keys.r - keys.l), moveZ = (keys.f - keys.b);
+      } else {
+        dir.set(Math.sin(yaw), 0, -Math.cos(yaw));
+      }
+      const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).normalize();
+      let moveX = (keys.r - keys.l), moveZ = (keys.f - keys.b);
+      if(moveX || moveZ){
         const speed = BASE_SPEED * (keys.run? RUN_MULT : 1);
         obj.position.addScaledVector(dir, moveZ * speed * dt);
         obj.position.addScaledVector(right, moveX * speed * dt);
-
-        // sample wave height at player position
-        const t = uniforms.uTime.value;
-        const sample = heightAndGrad(obj.position.x, obj.position.z, t);
-        const targetY = sample.h + EYE_HEIGHT;
-        obj.position.y += (targetY - obj.position.y) * SMOOTH; // smooth follow
       }
+
+      // sample wave height at player position
+      const t = uniforms.uTime.value;
+      const sample = heightAndGrad(obj.position.x, obj.position.z, t);
+      const targetY = sample.h + 2.0; // EYE_HEIGHT
+      obj.position.y += (targetY - obj.position.y) * SMOOTH;
 
       renderer.render(scene, camera);
       requestAnimationFrame(animate);
