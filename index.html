@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Ocean Survival VR - Real Waves</title>
+    <title>Ocean Survival VR - Realistic Waves</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <style>body { margin: 0; overflow: hidden; }</style>
   </head>
@@ -12,11 +12,15 @@
       <!-- Ουρανός -->
       <a-sky color="#0d1b2a"></a-sky>
 
+      <!-- Φωτισμός -->
+      <a-entity light="type: directional; intensity: 1; castShadow: true" position="0 10 -10"></a-entity>
+      <a-entity light="type: ambient; intensity: 0.3; color: #4a6fa5"></a-entity>
+
       <!-- Ωκεανός -->
       <a-entity id="ocean"
-        geometry="primitive: plane; width: 2000; height: 2000; segmentsWidth: 200; segmentsHeight: 200"
+        geometry="primitive: plane; width: 2000; height: 2000; segmentsWidth: 250; segmentsHeight: 250"
         rotation="-90 0 0"
-        material="color: #1c3c5d; shader: flat">
+        material="shader: standard; color: #1c3c5d; metalness: 0.8; roughness: 0.4; opacity: 0.95">
       </a-entity>
 
       <!-- Παίκτης -->
@@ -61,7 +65,7 @@
             const y = orig[i + 1];
             const wave = Math.sin((x + this.time * speed) * freq) * amp
                        + Math.cos((y + this.time * speed) * freq) * amp * 0.5;
-            arr[i + 2] = wave; // μετακινεί το Z για το κύμα
+            arr[i + 2] = wave;
           }
 
           positions.needsUpdate = true;
@@ -69,8 +73,9 @@
         }
       });
 
-      // Βάλε το wave-motion στο ocean
-      document.querySelector('#ocean').setAttribute('wave-motion', 'amplitude:0.8; frequency:0.15; speed:1.5');
+      // Ενεργοποίηση κύματος
+      document.querySelector('#ocean')
+        .setAttribute('wave-motion', 'amplitude:0.7; frequency:0.15; speed:1.2');
 
       // Sprint με Shift
       document.addEventListener('keydown', (e) => {
