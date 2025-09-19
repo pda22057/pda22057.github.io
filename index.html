@@ -2,13 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Ocean Survival VR</title>
+    <title>Ocean Survival VR - Real Waves</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/aframe-water@3.2.1/dist/aframe-water.min.js"></script>
-    <style>
-      body { margin: 0; overflow: hidden; }
-    </style>
+    <style>body { margin: 0; overflow: hidden; }</style>
   </head>
 
   <body>
@@ -17,12 +13,11 @@
       <!-- Ουρανός -->
       <a-sky color="#0d1b2a"></a-sky>
 
-      <!-- Ωκεανός με ρεαλιστικά κύματα -->
+      <!-- Ωκεανός -->
       <a-entity id="ocean"
-        geometry="primitive: plane; width: 2000; height: 2000; segmentsWidth: 200; segmentsHeight: 200"
+        geometry="primitive: plane; width: 2000; height: 2000; segmentsWidth: 300; segmentsHeight: 300"
         rotation="-90 0 0"
-        material="shader: water; color: #1c3c5d; opacity: 0.95; metalness:0.2; roughness:0.8"
-        water="amplitude: 0.3; amplitudeVariance: 0.2; speed: 2; speedVariance: 1; frequency: 10">
+        material="color: #1c3c5d; shader: flat">
       </a-entity>
 
       <!-- Παίκτης -->
@@ -36,7 +31,34 @@
     </a-scene>
 
     <script>
-      // Sprint με Shift
+      // ---- ΚΥΜΑΤΑ ----
+      AFRAME.registerComponent('wave-motion', {
+        schema: { amplitude: {default: 0.3}, speed: {default: 1}, frequency: {default: 2} },
+        tick: function (time, delta) {
+          const mesh = this.el.getObject3D('mesh');
+          if (!mesh) return;
+          const geom = mesh.geometry;
+          const pos = geom.attributes.position;
+          const amp = this.data.amplitude;
+          const freq = this.data.frequency;
+          const speed = this.data.speed;
+
+          for (let i = 0; i < pos.count; i++) {
+            const x = pos.getX(i);
+            const y = pos.getY(i);
+            const t = time / 1000 * speed;
+            const wave = Math.sin(x * freq + t) * amp + Math.cos(y * freq + t) * amp * 0.5;
+            pos.setZ(i, wave);
+          }
+          pos.needsUpdate = true;
+          geom.computeVertexNormals();
+        }
+      });
+
+      // Βάλε το component στην θάλασσα
+      document.querySelector('#ocean').setAttribute('wave-motion', 'amplitude:0.5; speed:1.5; frequency:0.8');
+
+      // ---- Sprint με Shift ----
       document.addEventListener('keydown', (e) => {
         if (e.key === "Shift") {
           document.querySelector('#player').setAttribute('wasd-controls', 'acceleration: 50');
