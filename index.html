@@ -1,20 +1,22 @@
 <!doctype html>
-<html lang="el">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>A‑Frame Θάλασσα • Κίνηση + Κύματα</title>
+  <title>A‑Frame Ocean (your wave code) + Free Movement</title>
   <style>
     html, body { height: 100%; margin: 0; }
     body { background: #0b1422; overflow: hidden; }
-    .hud { position: fixed; left: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; z-index: 5; pointer-events: none; }
+    .hud { position: fixed; left: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; z-index: 5; }
     .hud kbd{background: rgba(255,255,255,.15); padding: 2px 6px; border-radius: 6px;}
   </style>
-  <!-- A‑Frame + Extras (ocean + movement-controls) → σταθερό σε GitHub Pages -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
+  <!-- Exactly the libs from your snippet -->
+  <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/@c-frame/aframe-particle-system-component@1.2.x/dist/aframe-particle-system-component.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe-simple-sun-sky@^1.2.2/simple-sun-sky.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.5.0/dist/aframe-extras.min.js"></script>
   <script>
-    // Κάνει τον ωκεανό «άπειρο» ακολουθώντας τον παίκτη
+    // Keep the ocean "infinite" by following the player rig.
     AFRAME.registerComponent('follow-player', {
       schema: {y: {type:'number', default: 0}},
       tick: function(){
@@ -27,41 +29,46 @@
   </script>
 </head>
 <body>
-  <div class="hud">Θέαση: κάνε κλικ μέσα στο παράθυρο για pointer‑lock • Κίνηση: <kbd>WASD</kbd> • Sprint: <kbd>Shift</kbd> • Reset: <kbd>R</kbd></div>
+  <div class="hud">Click inside to look (pointer‑lock) • Move: <kbd>WASD</kbd> • Sprint: <kbd>Shift</kbd> • Reset: <kbd>R</kbd></div>
 
-  <a-scene renderer="colorManagement: true" background="color: #0b1422">
-    <!-- Φώτα -->
-    <a-entity light="type: directional; intensity: 1.0; castShadow: false" position="-200 300 -120"></a-entity>
-    <a-entity light="type: ambient; intensity: 0.2; color: #5a7cff"></a-entity>
+  <a-scene>
+    <!-- Your components -->
+    <a-entity id="rain" particle-system="preset: rain; color: #24CAFF; particleCount: 5000"></a-entity>
 
-    <!-- Ουρανός -->
-    <a-sky color="#0e1422"></a-sky>
+    <a-entity id="sphere" geometry="primitive: sphere"
+              material="color: #EFEFEF; shader: flat"
+              position="0 0.15 -5"
+              light="type: point; intensity: 5"
+              animation="property: position; easing: easeInOutQuad; dir: alternate; dur: 1000; to: 0 -0.10 -5; loop: true"></a-entity>
 
-    <!-- Ωκεανός από aframe-extras (animated) + infinite follow -->
-    <!-- ΣΗΜ.: Το component 'ocean' δημιουργεί κινούμενα κύματα (choppy) στο GPU. -->
+    <!-- Ocean using the exact wave code from your snippet -->
     <a-entity id="ocean"
-              ocean="width: 12000; depth: 12000; density: 80; amplitude: 2.8; speed: 1.2; color: #2979ff; opacity: 1"
+              ocean="density: 20; width: 50; depth: 50; speed: 4"
+              material="color: #9CE3F9; opacity: 0.75; metalness: 0; roughness: 1"
               rotation="-90 0 0"
               follow-player="y: 0">
     </a-entity>
 
-    <!-- RIG παίκτη με movement-controls (από aframe-extras) -->
+    <a-simple-sun-sky sun-position="1 0.4 0"></a-simple-sun-sky>
+    <a-entity id="light" light="type: ambient; color: #888"></a-entity>
+
+    <!-- Player rig with free movement & mouse look -->
     <a-entity id="rig" position="0 2 0" movement-controls="fly: true; speed: 0.15">
       <a-entity camera look-controls="pointerLockEnabled: true" position="0 1.6 0"></a-entity>
     </a-entity>
   </a-scene>
 
   <script>
-    // Sprint & Reset πάνω στο movement-controls
+    // Sprint + reset helpers for movement-controls
     (function(){
       const scene = document.querySelector('a-scene');
       const rig = document.querySelector('#rig');
-      let sprint=false;
+      let sprint=false; let baseSpeed = 0.15;
       window.addEventListener('keydown', (e)=>{ if(e.code==='ShiftLeft'||e.code==='ShiftRight') sprint=true; if(e.code==='KeyR'){ rig.setAttribute('position', {x:0,y:2,z:0}); } });
       window.addEventListener('keyup', (e)=>{ if(e.code==='ShiftLeft'||e.code==='ShiftRight') sprint=false; });
       scene.addEventListener('loaded', ()=>{
         const mc = rig.components['movement-controls'];
-        const baseSpeed = 0.15;
+        baseSpeed = mc && mc.data ? mc.data.speed : baseSpeed;
         scene.addEventListener('tick', ()=>{ if(!mc) return; mc.data.speed = sprint ? baseSpeed*3 : baseSpeed; });
       });
     })();
