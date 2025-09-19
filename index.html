@@ -1,11 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="utf-8">
     <title>Ocean Survival VR</title>
-    <link rel="stylesheet" href="style.css" />
+    <meta name="description" content="VR Survival Game in Ocean">
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
+    <style>
+      body { margin: 0; overflow: hidden; }
+    </style>
   </head>
+
   <body>
-    <script type="module" src="script.js"></script>
+    <a-scene fog="type: exponential; color: #0a1a2f; density: 0.05">
+
+      <!-- Ουρανός -->
+      <a-sky color="#0d1b2a"></a-sky>
+
+      <!-- Ωκεανός -->
+      <a-entity id="ocean" 
+        geometry="primitive: plane; width: 5000; height: 5000"
+        rotation="-90 0 0"
+        material="shader: flat; src: url(assets/ocean-texture.jpg); repeat: 1000 1000; transparent: true; opacity: 0.95">
+      </a-entity>
+
+      <!-- Παίκτης / Κάμερα -->
+      <a-entity id="player"
+        camera
+        wasd-controls="acceleration: 15"
+        look-controls
+        position="0 1.6 0">
+      </a-entity>
+
+      <!-- Ήχος -->
+      <a-sound src="url(assets/waves-sound.mp3)" autoplay="true" loop="true" positional="false"></a-sound>
+
+    </a-scene>
+
+    <script>
+      // Sprint με Shift
+      document.addEventListener('keydown', (e) => {
+        if (e.key === "Shift") {
+          document.querySelector('#player').setAttribute('wasd-controls', 'acceleration: 50');
+        }
+      });
+      document.addEventListener('keyup', (e) => {
+        if (e.key === "Shift") {
+          document.querySelector('#player').setAttribute('wasd-controls', 'acceleration: 15');
+        }
+      });
+    </script>
   </body>
 </html>
