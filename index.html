@@ -3,205 +3,68 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Θάλασσα με A‑Frame • ρεαλιστικά κύματα + κίνηση</title>
+  <title>A‑Frame Θάλασσα • Κίνηση + Κύματα</title>
   <style>
     html, body { height: 100%; margin: 0; }
     body { background: #0b1422; overflow: hidden; }
-    .hud { position: fixed; left: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; z-index: 5; }
+    .hud { position: fixed; left: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; z-index: 5; pointer-events: none; }
     .hud kbd{background: rgba(255,255,255,.15); padding: 2px 6px; border-radius: 6px;}
   </style>
+  <!-- A‑Frame + Extras (ocean + movement-controls) → σταθερό σε GitHub Pages -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
+  <script>
+    // Κάνει τον ωκεανό «άπειρο» ακολουθώντας τον παίκτη
+    AFRAME.registerComponent('follow-player', {
+      schema: {y: {type:'number', default: 0}},
+      tick: function(){
+        const rig = this.el.sceneEl && this.el.sceneEl.querySelector('#rig');
+        if(!rig) return;
+        const p = rig.object3D.position;
+        this.el.object3D.position.set(p.x, this.data.y, p.z);
+      }
+    });
+  </script>
 </head>
 <body>
-  <div class="hud">Θέαση: ποντίκι (κλικ για pointer‑lock) • Κίνηση: <kbd>WASD</kbd> • Sprint: <kbd>Shift</kbd> • Reset: <kbd>R</kbd></div>
+  <div class="hud">Θέαση: κάνε κλικ μέσα στο παράθυρο για pointer‑lock • Κίνηση: <kbd>WASD</kbd> • Sprint: <kbd>Shift</kbd> • Reset: <kbd>R</kbd></div>
 
   <a-scene renderer="colorManagement: true" background="color: #0b1422">
-    <!-- Ήλιος / φως -->
-    <a-entity id="sun" light="type: directional; intensity: 1.0" position="-200 300 -120"></a-entity>
-    <a-entity light="type: ambient; intensity: 0.15; color: #5a7cff"></a-entity>
+    <!-- Φώτα -->
+    <a-entity light="type: directional; intensity: 1.0; castShadow: false" position="-200 300 -120"></a-entity>
+    <a-entity light="type: ambient; intensity: 0.2; color: #5a7cff"></a-entity>
 
     <!-- Ουρανός -->
     <a-sky color="#0e1422"></a-sky>
 
-    <!-- Άπειρος ωκεανός: το πλακίδιο ακολουθεί τον παίκτη -->
+    <!-- Ωκεανός από aframe-extras (animated) + infinite follow -->
+    <!-- ΣΗΜ.: Το component 'ocean' δημιουργεί κινούμενα κύματα (choppy) στο GPU. -->
     <a-entity id="ocean"
-              geometry="primitive: plane; width: 8000; height: 8000; segmentsWidth: 240; segmentsHeight: 240"
+              ocean="width: 12000; depth: 12000; density: 80; amplitude: 2.8; speed: 1.2; color: #2979ff; opacity: 1"
               rotation="-90 0 0"
-              material="shader: gerstner-water; depthColor: #09203f; surfaceColor: #49a7ff; foamColor: #e7f7ff; chop: 1.2"
-              water-anim
-              infinite-ocean>
+              follow-player="y: 0">
     </a-entity>
 
-    <!-- RIG παίκτη (κάμερα με look-controls + wasd-controls) -->
-    <a-entity id="rig" position="0 6 0" wasd-controls="acceleration: 120" movement-controls>
-      <a-entity id="cam" camera look-controls="pointerLockEnabled: true"></a-entity>
+    <!-- RIG παίκτη με movement-controls (από aframe-extras) -->
+    <a-entity id="rig" position="0 2 0" movement-controls="fly: true; speed: 0.15">
+      <a-entity camera look-controls="pointerLockEnabled: true" position="0 1.6 0"></a-entity>
     </a-entity>
   </a-scene>
 
   <script>
-  // —————————————————————————————————————
-  // Shader: gerstner-water (GPU κύματα)
-  // —————————————————————————————————————
-  AFRAME.registerShader('gerstner-water', {
-    schema: {
-      time: {type: 'number', is: 'uniform', default: 0},
-      chop: {type: 'number', is: 'uniform', default: 1.2},
-      depthColor: {type: 'color', is: 'uniform', default: '#09203f'},
-      surfaceColor: {type: 'color', is: 'uniform', default: '#49a7ff'},
-      foamColor: {type: 'color', is: 'uniform', default: '#e7f7ff'},
-      foamThreshold: {type: 'number', is: 'uniform', default: 0.68},
-      colorOffset: {type: 'number', is: 'uniform', default: 0.08},
-      colorMult: {type: 'number', is: 'uniform', default: 3.5},
-      sunDir: {type: 'vec3', is: 'uniform', default: {x:-0.5,y:0.8,z:-0.2}},
-      offset: {type: 'vec2', is: 'uniform', default: {x:0, y:0}},
-      // 5 κυματοσυστήματα
-      w0_dir: {type:'vec2', is:'uniform', default:{x: 1.0, y: 0.2}}, w0_len:{type:'number', is:'uniform', default:280.0}, w0_speed:{type:'number', is:'uniform', default:10.0}, w0_steep:{type:'number', is:'uniform', default:1.2},
-      w1_dir: {type:'vec2', is:'uniform', default:{x: 0.6, y: 1.0}}, w1_len:{type:'number', is:'uniform', default:140.0}, w1_speed:{type:'number', is:'uniform', default:16.0}, w1_steep:{type:'number', is:'uniform', default:1.0},
-      w2_dir: {type:'vec2', is:'uniform', default:{x:-0.8, y: 0.1}}, w2_len:{type:'number', is:'uniform', default: 90.0}, w2_speed:{type:'number', is:'uniform', default:20.0}, w2_steep:{type:'number', is:'uniform', default:0.8},
-      w3_dir: {type:'vec2', is:'uniform', default:{x: 0.3, y:-0.9}}, w3_len:{type:'number', is:'uniform', default: 45.0}, w3_speed:{type:'number', is:'uniform', default:24.0}, w3_steep:{type:'number', is:'uniform', default:0.6},
-      w4_dir: {type:'vec2', is:'uniform', default:{x:-1.0, y:-0.4}}, w4_len:{type:'number', is:'uniform', default: 22.0}, w4_speed:{type:'number', is:'uniform', default:28.0}, w4_steep:{type:'number', is:'uniform', default:0.5}
-    },
-    vertexShader: `
-      uniform float time; uniform float chop; uniform vec2 offset;
-      uniform vec2 w0_dir,w1_dir,w2_dir,w3_dir,w4_dir;
-      uniform float w0_len,w1_len,w2_len,w3_len,w4_len;
-      uniform float w0_speed,w1_speed,w2_speed,w3_speed,w4_speed;
-      uniform float w0_steep,w1_steep,w2_steep,w3_steep,w4_steep;
-      varying vec3 vPos; varying vec3 vNormal; varying float vFoam;
-      struct Wave { vec2 dir; float len; float speed; float steep; };
-      void applyWave(in Wave W, in vec2 xz, inout vec3 P, inout vec3 dPdX, inout vec3 dPdZ){
-        vec2 d = normalize(W.dir);
-        float k = 6.28318530718 / W.len; // wavenumber
-        float a = W.steep / k;           // amplitude
-        float ph = k * dot(d, xz) - W.speed * time;
-        float s = sin(ph), c = cos(ph);
-        P.x += d.x * a * c * chop;
-        P.z += d.y * a * c * chop;
-        P.y += a * s;
-        vec2 dp = k * d;
-        dPdX.x += -d.x * a * s * chop * dp.x; dPdX.y += a * c * dp.x; dPdX.z += -d.y * a * s * chop * dp.x;
-        dPdZ.x += -d.x * a * s * chop * dp.y; dPdZ.y += a * c * dp.y; dPdZ.z += -d.y * a * s * chop * dp.y;
-      }
-      void main(){
-        vec3 P = position; vec3 dPdX = vec3(1.,0.,0.); vec3 dPdZ = vec3(0.,0.,1.);
-        vec2 worldXZ = P.xz + offset;
-        applyWave(Wave(w0_dir,w0_len,w0_speed,w0_steep), worldXZ, P, dPdX, dPdZ);
-        applyWave(Wave(w1_dir,w1_len,w1_speed,w1_steep), worldXZ, P, dPdX, dPdZ);
-        applyWave(Wave(w2_dir,w2_len,w2_speed,w2_steep), worldXZ, P, dPdX, dPdZ);
-        applyWave(Wave(w3_dir,w3_len,w3_speed,w3_steep), worldXZ, P, dPdX, dPdZ);
-        applyWave(Wave(w4_dir,w4_len,w4_speed,w4_steep), worldXZ, P, dPdX, dPdZ);
-        vPos = P; vNormal = normalize(cross(dPdZ, dPdX));
-        float avgSteep = (w0_steep+w1_steep+w2_steep+w3_steep+w4_steep)/5.0;
-        vFoam = clamp(avgSteep * 0.6, 0.0, 1.0);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(P,1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 depthColor, surfaceColor, foamColor; uniform float foamThreshold, colorOffset, colorMult; uniform vec3 sunDir;
-      varying vec3 vPos; varying vec3 vNormal; varying float vFoam;
-      void main(){
-        vec3 N = normalize(vNormal); vec3 V = normalize(-vPos); vec3 L = normalize(sunDir);
-        float diff = max(dot(N,L),0.0); float spec = pow(max(dot(reflect(-L,N),V),0.0), 96.0) * 0.65;
-        float h = clamp((vPos.y + colorOffset) * colorMult, 0.0, 1.0);
-        vec3 base = mix(depthColor, surfaceColor, h);
-        float fres = pow(1.0 - max(dot(N,V), 0.0), 3.0);
-        float foam = smoothstep(foamThreshold-0.15, foamThreshold+0.05, fres + diff*0.35 + vFoam*0.5);
-        vec3 col = base * (0.28 + 0.9*diff) + spec; col = mix(col, foamColor, foam);
-        float fogD = 0.0012; float fogF = 1.0 - exp(-pow(length(vPos)*fogD, 2.0)); vec3 fogC = vec3(0.07,0.14,0.27); col = mix(col, fogC, fogF);
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `
-  });
-
-  // —————————————————————————————————————
-  // Component: water-anim (χρόνος + ήλιος)
-  // —————————————————————————————————————
-  AFRAME.registerComponent('water-anim', {
-    tick: function(t, dt){
-      const m = this.el.getObject3D('mesh'); if(!m) return;
-      const mat = m.material; if(!mat || !mat.uniforms) return;
-      mat.uniforms.time.value += (dt||16)/1000 * 1.15; // ταχύτητα κύματος
-      // ενημέρωσε κατεύθυνση ήλιου από entity #sun
-      const sun = this.el.sceneEl.querySelector('#sun'); if(sun){
-        const p = sun.object3D.position.clone().normalize();
-        mat.uniforms.sunDir.value.set(p.x, p.y, p.z);
-      }
-    }
-  });
-
-  // —————————————————————————————————————
-  // Component: infinite-ocean (ακολουθεί τον παίκτη + offset)
-  // —————————————————————————————————————
-  AFRAME.registerComponent('infinite-ocean', {
-    tick: function(){
-      const rig = this.el.sceneEl.querySelector('#rig'); if(!rig) return;
-      const rigPos = rig.object3D.position;
-      // μετακίνησε το πλακίδιο για να είναι πάντα κάτω από τον παίκτη
-      this.el.object3D.position.set(rigPos.x, 0, rigPos.z);
-      const m = this.el.getObject3D('mesh'); if(!m) return;
-      if(m.material && m.material.uniforms){
-        m.material.uniforms.offset.value.set(rigPos.x, rigPos.z);
-      }
-    }
-  });
-
-  // —————————————————————————————————————
-  // Επιπλεύση κάμερας επάνω στο κύμα + reset
-  // —————————————————————————————————————
-  (function(){
-    const scene = document.querySelector('a-scene');
-    const rig = document.querySelector('#rig');
-    const cam = document.querySelector('#cam');
-    const ocean = document.querySelector('#ocean');
-
-    const EYE = 2.0, SMOOTH = 0.12, SPEED = 18, RUN = 1.8;
-    const state = { run:false };
-
-    window.addEventListener('keydown', e=>{ if(e.code==='ShiftLeft'||e.code==='ShiftRight') state.run=true; if(e.code==='KeyR'){ rig.setAttribute('position', {x:0,y:6,z:0}); } });
-    window.addEventListener('keyup', e=>{ if(e.code==='ShiftLeft'||e.code==='ShiftRight') state.run=false; });
-
-    // ενίσχυσε wasd-controls (sprint)
-    scene.addEventListener('loaded', ()=>{
-      const wasd = rig.components['wasd-controls'];
-      if(wasd){
-        const origTick = wasd.tick.bind(wasd);
-        wasd.tick = function(t, dt){
-          const oldAcc = this.data.acceleration;
-          this.data.acceleration = state.run ? oldAcc * RUN : oldAcc;
-          origTick(t, dt);
-          this.data.acceleration = oldAcc; // επαναφορά
-        };
-      }
-    });
-
-    function heightAt(x, z){
-      const m = ocean.getObject3D('mesh'); if(!m) return 0;
-      const u = m.material.uniforms; const time = u.time.value;
-      const waves = [
-        {d:u.w0_dir.value, len:u.w0_len.value, speed:u.w0_speed.value, steep:u.w0_steep.value},
-        {d:u.w1_dir.value, len:u.w1_len.value, speed:u.w1_speed.value, steep:u.w1_steep.value},
-        {d:u.w2_dir.value, len:u.w2_len.value, speed:u.w2_speed.value, steep:u.w2_steep.value},
-        {d:u.w3_dir.value, len:u.w3_len.value, speed:u.w3_speed.value, steep:u.w3_steep.value},
-        {d:u.w4_dir.value, len:u.w4_len.value, speed:u.w4_speed.value, steep:u.w4_steep.value}
-      ];
-      let h=0; for(let i=0;i<waves.length;i++){ const d = waves[i].d.clone().normalize(); const k=2*Math.PI/waves[i].len; const a=waves[i].steep/k; const ph=k*(d.x*x + d.y*z) - waves[i].speed*time; h += Math.sin(ph)*a; }
-      return h;
-    }
-
-    scene.addEventListener('render-target-loaded', ()=>{
-      scene.addEventListener('tick', ()=>{
-        const pos = rig.object3D.position;
-        const yTarget = heightAt(pos.x, pos.z) + EYE;
-        pos.y += (yTarget - pos.y) * SMOOTH;
-        // μικρή κλίση βάσει κλίσης κύματος
-        const eps=0.5; const hX1=heightAt(pos.x+eps,pos.z), hX0=heightAt(pos.x-eps,pos.z), hZ1=heightAt(pos.x,pos.z+eps), hZ0=heightAt(pos.x,pos.z-eps);
-        const dhdx=(hX1-hX0)/(2*eps), dhdz=(hZ1-hZ0)/(2*eps);
-        const tiltX = -Math.atan(dhdz) * 0.15; const tiltZ = Math.atan(dhdx) * 0.15;
-        cam.object3D.rotation.x = cam.object3D.rotation.x*0.9 + tiltX*0.1;
-        cam.object3D.rotation.z = cam.object3D.rotation.z*0.9 + tiltZ*0.1;
+    // Sprint & Reset πάνω στο movement-controls
+    (function(){
+      const scene = document.querySelector('a-scene');
+      const rig = document.querySelector('#rig');
+      let sprint=false;
+      window.addEventListener('keydown', (e)=>{ if(e.code==='ShiftLeft'||e.code==='ShiftRight') sprint=true; if(e.code==='KeyR'){ rig.setAttribute('position', {x:0,y:2,z:0}); } });
+      window.addEventListener('keyup', (e)=>{ if(e.code==='ShiftLeft'||e.code==='ShiftRight') sprint=false; });
+      scene.addEventListener('loaded', ()=>{
+        const mc = rig.components['movement-controls'];
+        const baseSpeed = 0.15;
+        scene.addEventListener('tick', ()=>{ if(!mc) return; mc.data.speed = sprint ? baseSpeed*3 : baseSpeed; });
       });
-    });
-  })();
+    })();
   </script>
 </body>
 </html>
