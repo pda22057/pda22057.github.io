@@ -3,43 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Όρκα στο Κύμα — Mini Game (GitHub Pages friendly)</title>
+  <title>Ρεαλιστική Θάλασσα • Ελεύθερη Κίνηση (GitHub Pages)</title>
   <style>
     html, body { height: 100%; margin: 0; }
     body { background: #0b1422; overflow: hidden; }
     #app { position: fixed; inset: 0; }
-    .hud { position: fixed; inset: 0; pointer-events: auto; }
-    .panel { position: absolute; inset: 0; display: grid; place-items: center; color: #e6f0ff; background: rgba(0,0,0,.55); font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; backdrop-filter: blur(6px); z-index: 10; }
-    .panel .box{ background: rgba(9,14,24,.85); padding: 18px 22px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); text-align: center; }
-    .panel button{ margin-top: 10px; border:0; padding:10px 14px; border-radius: 10px; background:#5993ff; color:#fff; font-weight:700; cursor:pointer; }
-    .panel kbd{ background: rgba(255,255,255,.15); padding: 2px 6px; border-radius: 6px; }
-    .top-left { position: absolute; left: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; }
-    .top-right { position: absolute; right: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; }
-    .bottom { position: absolute; left: 50%; transform: translateX(-50%); bottom: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 12px system-ui; }
-    .flash { position: fixed; inset:0; background: rgba(255, 25, 25, 0.0); pointer-events:none; transition: background .25s ease; z-index: 9; }
+    .hud { position: fixed; inset: 0; pointer-events: none; }
+    .bar { position: absolute; left: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; pointer-events:auto; }
+    .help { position: absolute; right: 10px; top: 10px; color:#e6f0ff; background: rgba(0,0,0,.35); padding:8px 10px; border-radius: 10px; font: 13px system-ui; pointer-events:auto; }
+    .help kbd{background: rgba(255,255,255,.15); padding: 2px 6px; border-radius: 6px;}
     canvas { cursor: grab; }
     canvas.dragging { cursor: grabbing; }
   </style>
-  <!-- No ES modules. Global THREE only (works on GitHub Pages / raw links) -->
+  <!-- Global THREE only (χωρίς ES modules) για GitHub Pages -->
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 </head>
 <body>
   <div id="app"></div>
   <div class="hud">
-    <div id="panel" class="panel">
-      <div class="box">
-        <div style="font-size:20px; font-weight:800;">Όρκα στο Κύμα</div>
-        <div style="margin-top:6px;">Μην βρίσκεσαι μέσα στους <b>κόκκινους κύκλους</b> όταν μηδενίσει το ρολόι (5s). Μετά πετάγεται <b>όρκα</b>!</div>
-        <div style="margin-top:10px;">Κίνηση: <kbd>WASD</kbd> • Sprint: <kbd>Shift</kbd> • Θέαση: <b>κλικ & σύρε</b> (ή <kbd>← → ↑ ↓</kbd>)</div>
-        <div style="margin-top:10px;">Ξεκίνα με <b>κλικ</b> ή <b>οποιοδήποτε πλήκτρο</b>.</div>
-        <button id="startBtn">Έναρξη</button>
-      </div>
-    </div>
-    <div id="hudL" class="top-left">Ζωές: <b id="lives">3</b></div>
-    <div id="hudR" class="top-right">Απέφυγες: <b id="avoided">0</b></div>
-    <div class="bottom">Συμβουλή: κολύμπα συνεχώς — οι κύκλοι εμφανίζονται τυχαία γύρω σου.</div>
+    <div class="bar">Θέαση: κλικ & σύρε • Κίνηση: <kbd>WASD</kbd> • Sprint: <kbd>Shift</kbd> • Reset: <kbd>R</kbd></div>
+    <div class="help">Ρεαλιστικά κύματα (Gerstner) + άπειρο ωκεανό</div>
   </div>
-  <div id="flash" class="flash"></div>
 
   <script>
     // ———————————————————————————
@@ -47,191 +31,219 @@
     // ———————————————————————————
     const app = document.getElementById('app');
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0b1a33, 0.0016);
+    scene.fog = new THREE.FogExp2(0x0b1a33, 0.0012);
 
-    const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 20000);
+    const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 50000);
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     app.appendChild(renderer.domElement);
 
-    // Ουρανός & φως
-    const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(-60, 120, -20);
-    scene.add(sun, new THREE.AmbientLight(0x5a7cff, 0.18));
-    const skyGeo = new THREE.SphereGeometry(8000, 32, 16);
+    // Φως + ουρανός
+    const sun = new THREE.DirectionalLight(0xffffff, 1.0); sun.position.set(-200, 300, -120);
+    scene.add(sun, new THREE.AmbientLight(0x5a7cff, 0.15));
+    const skyGeo = new THREE.SphereGeometry(20000, 32, 16);
     const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide,
-      uniforms: { topColor: { value: new THREE.Color(0x8fb3ff) }, horizonColor: { value: new THREE.Color(0x4b6cb7) }, bottomColor: { value: new THREE.Color(0x0d1424) } },
+      uniforms: { topColor: { value: new THREE.Color(0x86aefc) }, horizonColor: { value: new THREE.Color(0x4b6cb7) }, bottomColor: { value: new THREE.Color(0x0d1424) } },
       vertexShader: `varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
       fragmentShader: `varying vec3 vW; uniform vec3 topColor,horizonColor,bottomColor; void main(){ float h=normalize(vW).y*.5+.5; vec3 c=mix(bottomColor,mix(horizonColor,topColor,smoothstep(.4,1.,h)),smoothstep(0.,1.,h)); gl_FragColor=vec4(c,1.0);} `
     });
     scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-    // Θάλασσα (κύματα) — FIX: normals χωρίς dFdx/dFdy στο vertex shader
-    const SIZE = 6000, SEG = 200;
-    const seaGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); seaGeo.rotateX(-Math.PI/2);
+    // ———————————————————————————
+    // ΡΕΑΛΙΣΤΙΚΗ ΘΑΛΑΣΣΑ — Gerstner + άπειρο πλαίσιο
+    // ———————————————————————————
+    const TILE_SIZE = 8000; // μεγάλο πλακίδιο έτσι ώστε να μην φαίνονται άκρα
+    const SEG = 240;
+    const seaGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE, SEG, SEG); seaGeo.rotateX(-Math.PI/2);
+
     const uniforms = {
       uTime: { value: 0 },
-      uAmp1: { value: 16 }, uLen1: { value: 140 }, uSpd1: { value: 1.2 }, uDir1: { value: new THREE.Vector2(1,0.2).normalize() },
-      uAmp2: { value: 8.5 }, uLen2: { value: 70 },  uSpd2: { value: 1.8 }, uDir2: { value: new THREE.Vector2(0.6,1).normalize() },
-      uAmp3: { value: 4.0 }, uLen3: { value: 32 },  uSpd3: { value: 2.6 }, uDir3: { value: new THREE.Vector2(-0.7,0.2).normalize() },
-      uDepthColor: { value: new THREE.Color('#0b1c34') }, uSurfaceColor: { value: new THREE.Color('#4db5ff') }, uFoamColor: { value: new THREE.Color('#e7f7ff') },
-      uFoam: { value: 0.68 }, uSunDir: { value: new THREE.Vector3().copy(sun.position).normalize() }
+      uChop: { value: 1.2 },
+      uSunDir: { value: new THREE.Vector3().copy(sun.position).normalize() },
+      uDepthColor: { value: new THREE.Color('#09203f') },
+      uSurfaceColor: { value: new THREE.Color('#49a7ff') },
+      uFoamColor: { value: new THREE.Color('#e7f7ff') },
+      uFoamThreshold: { value: 0.68 },
+      uColorOffset: { value: 0.08 }, uColorMult: { value: 3.5 },
+      uOffset: { value: new THREE.Vector2(0,0) },
+      // 5 σετ κυμάτων: swell, mid, wind, chop1, chop2
+      w_dir0: { value: new THREE.Vector2( 1.0, 0.2).normalize() }, w_len0: { value: 280.0 }, w_speed0: { value: 10.0 }, w_steep0: { value: 1.2 },
+      w_dir1: { value: new THREE.Vector2( 0.6, 1.0).normalize() }, w_len1: { value: 140.0 }, w_speed1: { value: 16.0 }, w_steep1: { value: 1.0 },
+      w_dir2: { value: new THREE.Vector2(-0.8, 0.1).normalize() }, w_len2: { value: 90.0 },  w_speed2: { value: 20.0 }, w_steep2: { value: 0.8 },
+      w_dir3: { value: new THREE.Vector2( 0.3,-0.9).normalize() }, w_len3: { value: 45.0 },  w_speed3: { value: 24.0 }, w_steep3: { value: 0.6 },
+      w_dir4: { value: new THREE.Vector2(-1.0,-0.4).normalize() }, w_len4: { value: 22.0 },  w_speed4: { value: 28.0 }, w_steep4: { value: 0.5 }
     };
+
     const seaMat = new THREE.ShaderMaterial({ uniforms, fog:true,
-      vertexShader:/*glsl*/`
-        uniform float uTime; 
-        uniform float uAmp1,uLen1,uSpd1; uniform vec2 uDir1;
-        uniform float uAmp2,uLen2,uSpd2; uniform vec2 uDir2;
-        uniform float uAmp3,uLen3,uSpd3; uniform vec2 uDir3;
-        varying vec3 vPos; varying vec3 vNormal;
+      vertexShader: /* glsl */`
+        uniform float uTime, uChop; uniform vec2 uOffset;
+        uniform vec2 w_dir0, w_dir1, w_dir2, w_dir3, w_dir4;
+        uniform float w_len0, w_len1, w_len2, w_len3, w_len4;
+        uniform float w_speed0, w_speed1, w_speed2, w_speed3, w_speed4;
+        uniform float w_steep0, w_steep1, w_steep2, w_steep3, w_steep4;
+        varying vec3 vPos; varying vec3 vNormal; varying float vFoamHint;
 
-        // ύψος & παράγωγοι (χωρίς οριζόντια μετατόπιση για το normal)
-        void heightDeriv(vec2 xz, out float h, out float dhdx, out float dhdz, float t){
-          h = 0.0; dhdx = 0.0; dhdz = 0.0;
-          vec2 D[3]; D[0]=normalize(uDir1); D[1]=normalize(uDir2); D[2]=normalize(uDir3);
-          float A[3]; A[0]=uAmp1; A[1]=uAmp2; A[2]=uAmp3;
-          float L[3]; L[0]=uLen1; L[1]=uLen2; L[2]=uLen3;
-          float S[3]; S[0]=uSpd1; S[1]=uSpd2; S[2]=uSpd3;
-          for(int i=0;i<3;i++){
-            float k = 6.28318530718 / L[i];
-            float ph = k * dot(D[i], xz) - t * S[i];
-            h += sin(ph) * A[i];
-            float c = cos(ph) * k * A[i];
-            dhdx += c * D[i].x;
-            dhdz += c * D[i].y;
-          }
-        }
+        struct Wave { vec2 dir; float len; float speed; float steep; };
 
-        vec3 applyChoppy(vec3 p, float t){
-          // ορατή «κοψίλα» στα κύματα (οριζόντια μετατόπιση)
-          vec2 D1 = normalize(uDir1); float k1 = 6.28318530718 / uLen1; float ph1 = k1*dot(D1, p.xz)-t*uSpd1; float A1=uAmp1; p.x += D1.x * cos(ph1) * A1 * 0.45; p.z += D1.y * cos(ph1) * A1 * 0.45;
-          vec2 D2 = normalize(uDir2); float k2 = 6.28318530718 / uLen2; float ph2 = k2*dot(D2, p.xz)-t*uSpd2; float A2=uAmp2; p.x += D2.x * cos(ph2) * A2 * 0.45; p.z += D2.y * cos(ph2) * A2 * 0.45;
-          vec2 D3 = normalize(uDir3); float k3 = 6.28318530718 / uLen3; float ph3 = k3*dot(D3, p.xz)-t*uSpd3; float A3=uAmp3; p.x += D3.x * cos(ph3) * A3 * 0.45; p.z += D3.y * cos(ph3) * A3 * 0.45;
-          return p;
+        void applyWave(in Wave W, in vec2 xz, inout vec3 P, inout vec3 dPdX, inout vec3 dPdZ){
+          vec2 d = normalize(W.dir);
+          float k = 6.28318530718 / W.len;     // κυμαριθμός
+          float a = W.steep / k;               // πλάτος (με βάση steepness)
+          float ph = k * dot(d, xz) - W.speed * uTime;
+          float s = sin(ph), c = cos(ph);
+          // οριζόντια "κοψίλα" (chop)
+          P.x += d.x * a * c * uChop;
+          P.z += d.y * a * c * uChop;
+          P.y += a * s;
+          // παράγωγοι για normal
+          vec2 dp = k * d;
+          // d/dx
+          dPdX.x += -d.x * a * s * uChop * dp.x;
+          dPdX.y +=  a * c * dp.x;
+          dPdX.z += -d.y * a * s * uChop * dp.x;
+          // d/dz
+          dPdZ.x += -d.x * a * s * uChop * dp.y;
+          dPdZ.y +=  a * c * dp.y;
+          dPdZ.z += -d.y * a * s * uChop * dp.y;
         }
 
         void main(){
-          float h, dx, dz; heightDeriv(position.xz, h, dx, dz, uTime);
-          vec3 p = position; p = applyChoppy(p, uTime); p.y += h;
-          // normal από παραγώγους ύψους
-          vec3 Tx = vec3(1.0, dx, 0.0);
-          vec3 Tz = vec3(0.0, dz, 1.0);
-          vNormal = normalize(cross(Tz, Tx));
-          vPos = p;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1.0);
+          vec3 P = position;
+          vec3 dPdX = vec3(1.0, 0.0, 0.0);
+          vec3 dPdZ = vec3(0.0, 0.0, 1.0);
+          vec2 worldXZ = P.xz + uOffset; // άπειρος ωκεανός: φάση με world coords
+
+          applyWave(Wave(w_dir0, w_len0, w_speed0, w_steep0), worldXZ, P, dPdX, dPdZ);
+          applyWave(Wave(w_dir1, w_len1, w_speed1, w_steep1), worldXZ, P, dPdX, dPdZ);
+          applyWave(Wave(w_dir2, w_len2, w_speed2, w_steep2), worldXZ, P, dPdX, dPdZ);
+          applyWave(Wave(w_dir3, w_len3, w_speed3, w_steep3), worldXZ, P, dPdX, dPdZ);
+          applyWave(Wave(w_dir4, w_len4, w_speed4, w_steep4), worldXZ, P, dPdX, dPdZ);
+
+          vPos = P;
+          vNormal = normalize(cross(dPdZ, dPdX));
+          // απλό hint για αφρό (με βάση μέση steepness)
+          float avgSteep = (w_steep0+w_steep1+w_steep2+w_steep3+w_steep4)/5.0;
+          vFoamHint = clamp(avgSteep * 0.6, 0.0, 1.0);
+
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(P, 1.0);
         }
       `,
-      fragmentShader:/*glsl*/`
-        uniform vec3 uDepthColor,uSurfaceColor,uFoamColor; uniform float uFoam; uniform vec3 uSunDir; varying vec3 vPos; varying vec3 vNormal;
-        void main(){ vec3 N=normalize(vNormal); vec3 V=normalize(-vPos); vec3 L=normalize(uSunDir); float diff=max(dot(N,L),0.0); float spec=pow(max(dot(reflect(-L,N),V),0.0),64.0)*0.7; float h=clamp((vPos.y+10.0)/40.0,0.0,1.0); vec3 base=mix(uDepthColor,uSurfaceColor,h); float fres=pow(1.0-max(dot(N,V),0.0),3.0); float foam=smoothstep(uFoam-0.15,uFoam+0.05,fres+diff*0.4); vec3 col=base*(0.25+diff*0.95)+spec; col=mix(col,uFoamColor,foam); float d=length(vPos); float f=1.0-exp(-pow(d*0.0016,2.0)); col=mix(col,vec3(0.07,0.14,0.27),f); gl_FragColor=vec4(col,1.0);} 
+      fragmentShader: /* glsl */`
+        uniform vec3 uDepthColor, uSurfaceColor, uFoamColor; 
+        uniform float uFoamThreshold, uColorOffset, uColorMult; 
+        uniform vec3 uSunDir; 
+        varying vec3 vPos; varying vec3 vNormal; varying float vFoamHint;
+        void main(){
+          vec3 N = normalize(vNormal);
+          vec3 V = normalize(-vPos);
+          vec3 L = normalize(uSunDir);
+          float diff = max(dot(N,L), 0.0);
+          float spec = pow(max(dot(reflect(-L,N), V), 0.0), 96.0) * 0.65;
+
+          // Ανάμειξη χρώματος με βάση το ύψος (proxy βάθους)
+          float h = clamp((vPos.y + uColorOffset) * uColorMult, 0.0, 1.0);
+          vec3 base = mix(uDepthColor, uSurfaceColor, h);
+
+          // Fresnel + αφρός στις κορυφές
+          float fres = pow(1.0 - max(dot(N,V), 0.0), 3.0);
+          float foam = smoothstep(uFoamThreshold-0.15, uFoamThreshold+0.05, fres + diff*0.35 + vFoamHint*0.5);
+
+          vec3 col = base * (0.28 + 0.9*diff) + spec;
+          col = mix(col, uFoamColor, foam);
+
+          // Ομίχλη
+          float fogDens = 0.0012; float fogF = 1.0 - exp(-pow(length(vPos)*fogDens, 2.0));
+          vec3 fogCol = vec3(0.07,0.14,0.27);
+          col = mix(col, fogCol, fogF);
+
+          gl_FragColor = vec4(col, 1.0);
+        }
       `
     });
-    scene.add(new THREE.Mesh(seaGeo, seaMat));
 
-    // Παίκτης (χωρίς pointer lock)
-    const player = new THREE.Object3D(); scene.add(player); player.add(camera); camera.position.set(0,0,0);
-    let yaw=0, pitch=0;
+    const water = new THREE.Mesh(seaGeo, seaMat); water.frustumCulled=false; scene.add(water);
 
-    // Χειρισμός
-    const EYE=2.0, SMOOTH=0.12, SPEED=18, RUN=1.8;
-    const keys = { f:0,b:0,l:0,r:0,run:0 }, arrows={left:0,right:0,up:0,down:0};
+    // ———————————————————————————
+    // Παίκτης — ελεύθερη κίνηση, θέαση με drag, επιπλέει στο κύμα
+    // ———————————————————————————
+    const player = new THREE.Object3D(); scene.add(player); player.add(camera);
+    camera.position.set(0,0,0);
+
+    const EYE = 2.0;        // μάτια ~2m πάνω από επιφάνεια
+    const SMOOTH = 0.12;    // εξομάλυνση ύψους
+    const SPEED = 18;       // m/s
+    const RUN = 1.8;        // sprint
+
+    let yaw=0, pitch=0; const keys={f:0,b:0,l:0,r:0,run:0};
     let dragging=false, lastX=0, lastY=0;
+
     function clampPitch(){ const lim=Math.PI/2-0.01; pitch=Math.max(-lim, Math.min(lim, pitch)); }
-    renderer.domElement.addEventListener('mousedown', (e)=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; renderer.domElement.classList.add('dragging'); });
+
+    renderer.domElement.addEventListener('mousedown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; renderer.domElement.classList.add('dragging'); });
     window.addEventListener('mouseup', ()=>{ dragging=false; renderer.domElement.classList.remove('dragging'); });
-    window.addEventListener('mousemove', (e)=>{ if(!dragging) return; const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; const S=0.003; yaw -= dx*S; pitch -= dy*S; clampPitch(); });
-    window.addEventListener('keydown', (e)=>{ if(e.code==='KeyW')keys.f=1; if(e.code==='KeyS')keys.b=1; if(e.code==='KeyA')keys.l=1; if(e.code==='KeyD')keys.r=1; if(e.code==='ShiftLeft'||e.code==='ShiftRight')keys.run=1; if(e.code==='ArrowLeft')arrows.left=1; if(e.code==='ArrowRight')arrows.right=1; if(e.code==='ArrowUp')arrows.up=1; if(e.code==='ArrowDown')arrows.down=1; if(!gameRunning) startGame(); });
-    window.addEventListener('keyup', (e)=>{ if(e.code==='KeyW')keys.f=0; if(e.code==='KeyS')keys.b=0; if(e.code==='KeyA')keys.l=0; if(e.code==='KeyD')keys.r=0; if(e.code==='ShiftLeft'||e.code==='ShiftRight')keys.run=0; if(e.code==='ArrowLeft')arrows.left=0; if(e.code==='ArrowRight')arrows.right=0; if(e.code==='ArrowUp')arrows.up=0; if(e.code==='ArrowDown')arrows.down=0; });
+    window.addEventListener('mousemove', e=>{ if(!dragging) return; const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; const S=0.003; yaw -= dx*S; pitch -= dy*S; clampPitch(); });
+    window.addEventListener('keydown', e=>{ if(e.code==='KeyW')keys.f=1; if(e.code==='KeyS')keys.b=1; if(e.code==='KeyA')keys.l=1; if(e.code==='KeyD')keys.r=1; if(e.code==='ShiftLeft'||e.code==='ShiftRight')keys.run=1; if(e.code==='KeyR') reset(); });
+    window.addEventListener('keyup', e=>{ if(e.code==='KeyW')keys.f=0; if(e.code==='KeyS')keys.b=0; if(e.code==='KeyA')keys.l=0; if(e.code==='KeyD')keys.r=0; if(e.code==='ShiftLeft'||e.code==='ShiftRight')keys.run=0; });
 
-    // Ύψος κύματος (ίδιο με shader)
+    function reset(){ player.position.set(0, 6, 0); yaw=0; pitch=0; }
+    reset();
+
+    // Δειγματοληψία ύψους κύματος (ίδια φυσική με shader, σε world coords)
+    const W = [
+      {dir: uniforms.w_dir0.value, len: uniforms.w_len0.value, speed: uniforms.w_speed0.value, steep: uniforms.w_steep0.value},
+      {dir: uniforms.w_dir1.value, len: uniforms.w_len1.value, speed: uniforms.w_speed1.value, steep: uniforms.w_steep1.value},
+      {dir: uniforms.w_dir2.value, len: uniforms.w_len2.value, speed: uniforms.w_speed2.value, steep: uniforms.w_steep2.value},
+      {dir: uniforms.w_dir3.value, len: uniforms.w_len3.value, speed: uniforms.w_speed3.value, steep: uniforms.w_steep3.value},
+      {dir: uniforms.w_dir4.value, len: uniforms.w_len4.value, speed: uniforms.w_speed4.value, steep: uniforms.w_steep4.value},
+    ];
+
     const TWO_PI = Math.PI*2;
-    function sampleHeight(x,z,t){
-      const sets=[
-        {A:uniforms.uAmp1.value,L:uniforms.uLen1.value,S:uniforms.uSpd1.value,D:uniforms.uDir1.value},
-        {A:uniforms.uAmp2.value,L:uniforms.uLen2.value,S:uniforms.uSpd2.value,D:uniforms.uDir2.value},
-        {A:uniforms.uAmp3.value,L:uniforms.uLen3.value,S:uniforms.uSpd3.value,D:uniforms.uDir3.value},
-      ];
-      let h=0; for(const s of sets){ const d=new THREE.Vector2().copy(s.D).normalize(); const k=TWO_PI/s.L; const ph=k*(d.x*x+d.y*z)-t*s.S; h+=Math.sin(ph)*s.A; } return h;
+    function heightAndGrad(x,z,t){
+      let h=0, dhdx=0, dhdz=0;
+      for(let i=0;i<W.length;i++){
+        const d = W[i].dir.clone().normalize();
+        const k = TWO_PI / W[i].len;
+        const a = W[i].steep / k;
+        const ph = k*(d.x*x + d.y*z) - W[i].speed * t;
+        const s = Math.sin(ph), c = Math.cos(ph);
+        h += a * s;
+        const cka = c * k * a; // derivative multiplier
+        dhdx += cka * d.x;
+        dhdz += cka * d.y;
+      }
+      return { h, dhdx, dhdz };
     }
-
-    // Hazards (κύκλοι + όρκες)
-    const hazardGroup = new THREE.Group(); scene.add(hazardGroup);
-    const hazards = [];
-    function createTextSprite(text){
-      const cvs=document.createElement('canvas'); const ctx=cvs.getContext('2d'); const pad=8; ctx.font='700 28px system-ui,Segoe UI,Roboto'; const w=ctx.measureText(text).width+pad*2; const h=42+pad*2; cvs.width=w; cvs.height=h; ctx.font='700 28px system-ui,Segoe UI,Roboto'; ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,w,h); ctx.fillStyle='#ffffff'; ctx.textBaseline='middle'; ctx.textAlign='center'; ctx.fillText(text,w/2,h/2+2); const tex=new THREE.CanvasTexture(cvs); const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true })); spr.scale.set(w*0.02,h*0.02,1); spr.userData={canvas:cvs,ctx:ctx,tex:tex}; return spr;
-    }
-    function spawnHazard(){
-      const r = THREE.MathUtils.randFloat(20, 40);
-      const dist = THREE.MathUtils.randFloat(40, 160);
-      const ang = THREE.MathUtils.randFloat(0, Math.PI*2);
-      const cx = player.position.x + Math.cos(ang)*dist;
-      const cz = player.position.z + Math.sin(ang)*dist;
-      const ring = new THREE.Mesh(new THREE.RingGeometry(r*0.7, r, 64), new THREE.MeshBasicMaterial({ color:0xff3355, transparent:true, opacity:0.7, side:THREE.DoubleSide }));
-      ring.rotation.x = -Math.PI/2; hazardGroup.add(ring);
-      const spr = createTextSprite('5.0s'); hazardGroup.add(spr);
-      hazards.push({ mesh:ring, sprite:spr, x:cx, z:cz, r, tLeft:5.0, orca:null });
-    }
-    function spawnOrcaAt(x,z){
-      const g = new THREE.Group(); g.userData.isOrca=true; g.userData.t=0;
-      const body = new THREE.Mesh(new THREE.SphereGeometry(6, 24, 16), new THREE.MeshPhongMaterial({ color:0x0a0a0a, shininess:20 })); body.scale.set(1.6,0.8,1);
-      const fin = new THREE.Mesh(new THREE.ConeGeometry(3,6,16), new THREE.MeshPhongMaterial({ color:0x000000 })); fin.position.set(0,2,0); fin.rotation.x=Math.PI;
-      const tail = new THREE.Mesh(new THREE.BoxGeometry(2,0.5,4), new THREE.MeshPhongMaterial({ color:0x000000 })); tail.position.set(0,-1.5,-4);
-      g.add(body, fin, tail); g.position.set(x,-20,z); scene.add(g); return g;
-    }
-
-    // HUD & game state
-    const panel = document.getElementById('panel');
-    const startBtn = document.getElementById('startBtn');
-    const livesEl = document.getElementById('lives');
-    const avoidedEl = document.getElementById('avoided');
-    const flashEl = document.getElementById('flash');
-
-    let gameRunning=false, lives=3, avoided=0;
-    function hitEffect(){ flashEl.style.background='rgba(255,25,25,0.35)'; setTimeout(()=> flashEl.style.background='rgba(255,25,25,0.0)', 150); }
-    function damage(){ if(lives<=0) return; lives--; livesEl.textContent=lives; hitEffect(); if(lives<=0) endGame(); }
-    function endGame(){ gameRunning=false; panel.style.display='grid'; panel.querySelector('.box').innerHTML=`<div style="font-size:20px; font-weight:800; margin-bottom:6px;">Game Over</div><div>Σε κατάπιε η όρκα! Απέφυγες: <b>${avoided}</b> κύκλους.</div><button id="restartBtn">Ξανά</button>`; document.getElementById('restartBtn').addEventListener('click', ()=>startGame()); }
-
-    function resetPlayer(){ player.position.set(0,6,0); yaw=0; pitch=0; }
-
-    function startGame(){
-      hazards.splice(0, hazards.length); while(hazardGroup.children.length) hazardGroup.remove(hazardGroup.children[0]);
-      for(let i=scene.children.length-1;i>=0;i--){ const o=scene.children[i]; if(o.userData && o.userData.isOrca) scene.remove(o); }
-      lives=3; avoided=0; livesEl.textContent=lives; avoidedEl.textContent=avoided;
-      resetPlayer(); gameRunning=true; uniforms.uTime.value=0; panel.style.display='none';
-      for(let i=0;i<2;i++) spawnHazard();
-    }
-
-    startBtn.addEventListener('click', ()=> startGame());
-    renderer.domElement.addEventListener('click', ()=> { if(!gameRunning) startGame(); });
 
     // Βρόχος
-    let shake=0, shakeInt=0; const clock = new THREE.Clock();
+    const clock = new THREE.Clock();
     function animate(){
       const dt = Math.min(clock.getDelta(), 0.05);
-      uniforms.uTime.value += dt * 1.25;
+      uniforms.uTime.value += dt * 1.15; // ταχύτητα κύματος
 
-      // βελάκια look
-      const TURN=1.8; yaw += (arrows.right - arrows.left)*TURN*dt; pitch += (arrows.up - arrows.down)*TURN*dt; clampPitch();
+      // Κίνηση παίκτη
       player.rotation.y = yaw; camera.rotation.x = pitch;
-
-      // κίνηση
       const fwd = new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion); fwd.y=0; fwd.normalize();
       const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0,1,0)).normalize();
-      const mx = (keys.r-keys.l), mz=(keys.f-keys.b); if(mx||mz){ const sp=SPEED*(keys.run?RUN:1); player.position.addScaledVector(fwd, mz*sp*dt); player.position.addScaledVector(right, mx*sp*dt); }
-      const t=uniforms.uTime.value; const targetY = sampleHeight(player.position.x, player.position.z, t) + EYE; player.position.y += (targetY - player.position.y)*SMOOTH;
+      const mx = (keys.r-keys.l), mz=(keys.f-keys.b);
+      if(mx||mz){ const sp=SPEED*(keys.run?RUN:1); player.position.addScaledVector(fwd, mz*sp*dt); player.position.addScaledVector(right, mx*sp*dt); }
 
-      // κύκλοι
-      if(gameRunning){ if(hazards.length<3 && Math.random()<0.02) spawnHazard();
-        for(let i=hazards.length-1;i>=0;i--){ const h=hazards[i]; const hy=sampleHeight(h.x,h.z,t); h.mesh.position.set(h.x,hy+0.05,h.z); h.sprite.position.set(h.x,hy+6,h.z); h.tLeft-=dt; if(h.tLeft<0) h.tLeft=0; const sctx=h.sprite.userData.ctx, scvs=h.sprite.userData.canvas, stex=h.sprite.userData.tex; sctx.clearRect(0,0,scvs.width,scvs.height); sctx.fillStyle='rgba(0,0,0,0.35)'; sctx.fillRect(0,0,scvs.width,scvs.height); sctx.font='700 28px system-ui,Segoe UI,Roboto'; sctx.fillStyle='#fff'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.fillText(h.tLeft.toFixed(1)+'s', scvs.width/2, scvs.height/2+2); stex.needsUpdate=true; if(h.tLeft<=0 && !h.orca){ const hitDist2=(player.position.x-h.x)*(player.position.x-h.x)+(player.position.z-h.z)*(player.position.z-h.z); const hit = hitDist2 <= (h.r*h.r); const orca=spawnOrcaAt(h.x,h.z); orca.userData.dir=new THREE.Vector3().subVectors(player.position, new THREE.Vector3(h.x, player.position.y, h.z)).setY(0).normalize(); orca.userData.t=0; h.orca=orca; hazardGroup.remove(h.mesh); hazardGroup.remove(h.sprite); hazards.splice(i,1); if(hit){ damage(); shake=0.5; shakeInt=0.8; } else { avoided++; avoidedEl.textContent=avoided; } }
-        }
-      }
+      // Άπειρος ωκεανός: μετακινούμε το πλακίδιο να ακολουθεί τον παίκτη
+      water.position.set(player.position.x, 0, player.position.z);
+      uniforms.uOffset.value.set(water.position.x, water.position.z);
 
-      // όρκες
-      for(const o of scene.children){ if(!(o.userData && o.userData.isOrca)) continue; o.userData.t += dt; const tt=o.userData.t; const baseY=sampleHeight(o.position.x,o.position.z,t); const up=Math.sin(Math.min(tt,1)*Math.PI)*10; o.position.y = baseY - 6 + up; o.position.addScaledVector(o.userData.dir, 10*dt); o.rotation.y = Math.atan2(o.userData.dir.x, o.userData.dir.z); if(tt>2.2) scene.remove(o); }
+      // Επιπλέει στο κύμα + ελαφρύς προσανατολισμός με βάση κλίση
+      const t = uniforms.uTime.value;
+      const { h, dhdx, dhdz } = heightAndGrad(player.position.x, player.position.z, t);
+      const targetY = h + EYE;
+      player.position.y += (targetY - player.position.y) * SMOOTH;
 
-      // shake
-      if(shake>0){ shake-=dt; const s=shakeInt*shake; camera.position.x += (Math.random()-0.5)*s; camera.position.y += (Math.random()-0.5)*s*0.5; camera.position.z += (Math.random()-0.5)*s; }
+      // μικρή κλίση κάμερας για ρεαλισμό (με βάση κλίση κύματος)
+      const tiltX = -Math.atan(dhdz) * 0.15; // pitch tilt από κλίση προς z
+      const tiltZ =  Math.atan(dhdx) * 0.15; // roll tilt από κλίση προς x
+      camera.rotation.x = pitch + tiltX;
+      camera.rotation.z = tiltZ;
 
       renderer.render(scene, camera);
       requestAnimationFrame(animate);
