@@ -2,92 +2,65 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Ocean Survival VR - Realistic Waves</title>
+    <title>Ocean Survival VR - Realistic Water</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <style>body { margin: 0; overflow: hidden; }</style>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/objects/Water.js"></script>
+    <script>
+      // Custom A-Frame component για Water shader
+      AFRAME.registerComponent('realistic-water', {
+        schema: {
+          color: {default: '#1c3c5d'}
+        },
+        init: function () {
+          const el = this.el;
+          const scene = el.sceneEl.object3D;
+
+          const waterGeometry = new THREE.PlaneGeometry(5000, 5000, 256, 256);
+          this.water = new THREE.Water(
+            waterGeometry,
+            {
+              textureWidth: 512,
+              textureHeight: 512,
+              waterNormals: new THREE.TextureLoader().load('https://threejs.org/examples/textures/waternormals.jpg', function (texture) {
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+              }),
+              sunDirection: new THREE.Vector3(),
+              sunColor: 0xffffff,
+              waterColor: this.data.color,
+              distortionScale: 3.7,
+              fog: scene.fog !== undefined
+            }
+          );
+
+          this.water.rotation.x = - Math.PI / 2;
+          scene.add(this.water);
+        },
+        tick: function (time, delta) {
+          if (this.water) {
+            this.water.material.uniforms['time'].value += delta / 1000;
+          }
+        }
+      });
+    </script>
   </head>
   <body>
-    <a-scene fog="type: exponential; color: #0a1a2f; density: 0.05">
+    <a-scene fog="type: exponential; color: #0a1a2f; density: 0.04">
 
       <!-- Ουρανός -->
       <a-sky color="#0d1b2a"></a-sky>
 
-      <!-- Φωτισμός -->
-      <a-entity light="type: directional; intensity: 1; castShadow: true" position="0 10 -10"></a-entity>
-      <a-entity light="type: ambient; intensity: 0.3; color: #4a6fa5"></a-entity>
-
-      <!-- Ωκεανός -->
-      <a-entity id="ocean"
-        geometry="primitive: plane; width: 2000; height: 2000; segmentsWidth: 250; segmentsHeight: 250"
-        rotation="-90 0 0"
-        material="shader: standard; color: #1c3c5d; metalness: 0.8; roughness: 0.4; opacity: 0.95">
-      </a-entity>
+      <!-- Ρεαλιστική Θάλασσα -->
+      <a-entity realistic-water="color: #1c3c5d"></a-entity>
 
       <!-- Παίκτης -->
       <a-entity id="player"
         camera
         wasd-controls="acceleration: 15"
         look-controls
-        position="0 1.6 0">
+        position="0 2 0">
       </a-entity>
 
     </a-scene>
-
-    <script>
-      // Component για animated κύματα
-      AFRAME.registerComponent('wave-motion', {
-        schema: {
-          amplitude: {default: 0.5},
-          frequency: {default: 0.2},
-          speed: {default: 1.0}
-        },
-        init: function () {
-          this.time = 0;
-          const mesh = this.el.getObject3D('mesh');
-          if (!mesh) return;
-          this.originalPositions = mesh.geometry.attributes.position.array.slice();
-        },
-        tick: function (time, delta) {
-          const mesh = this.el.getObject3D('mesh');
-          if (!mesh) return;
-
-          const positions = mesh.geometry.attributes.position;
-          const arr = positions.array;
-          const orig = this.originalPositions;
-          const amp = this.data.amplitude;
-          const freq = this.data.frequency;
-          const speed = this.data.speed;
-
-          this.time += delta / 1000;
-
-          for (let i = 0; i < arr.length; i += 3) {
-            const x = orig[i];
-            const y = orig[i + 1];
-            const wave = Math.sin((x + this.time * speed) * freq) * amp
-                       + Math.cos((y + this.time * speed) * freq) * amp * 0.5;
-            arr[i + 2] = wave;
-          }
-
-          positions.needsUpdate = true;
-          mesh.geometry.computeVertexNormals();
-        }
-      });
-
-      // Ενεργοποίηση κύματος
-      document.querySelector('#ocean')
-        .setAttribute('wave-motion', 'amplitude:0.7; frequency:0.15; speed:1.2');
-
-      // Sprint με Shift
-      document.addEventListener('keydown', (e) => {
-        if (e.key === "Shift") {
-          document.querySelector('#player').setAttribute('wasd-controls', 'acceleration: 50');
-        }
-      });
-      document.addEventListener('keyup', (e) => {
-        if (e.key === "Shift") {
-          document.querySelector('#player').setAttribute('wasd-controls', 'acceleration: 15');
-        }
-      });
-    </script>
   </body>
 </html>
